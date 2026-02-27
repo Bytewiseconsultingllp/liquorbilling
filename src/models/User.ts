@@ -60,7 +60,5 @@ const userSchema = new mongoose.Schema(
   },
   { timestamps: true },
 );
-userSchema.index({ tenantId: 1 });
-userSchema.index({ email: 1 });
 userSchema.index({ tenantId: 1, email: 1 });
 export const User = mongoose.models.User || mongoose.model("User", userSchema);
