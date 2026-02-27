@@ -53,7 +53,7 @@ export default function RequestTenantPage() {
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">Desired URL slug</label>
               <div className="flex items-center rounded-xl border border-slate-200 bg-slate-50 overflow-hidden focus-within:ring-2 focus-within:ring-blue-500 focus-within:bg-white transition-all">
-                <span className="px-3 text-sm text-slate-400 select-none border-r border-slate-200 py-3 bg-slate-100">tenantify.com/</span>
+                <span className="px-3 text-sm text-slate-400 select-none border-r border-slate-200 py-3 bg-slate-100">Liquor Billing.com/</span>
                 <input placeholder="acme" required className="flex-1 py-3 pr-4 pl-3 bg-transparent text-slate-900 placeholder-slate-400 focus:outline-none text-sm"
                   onChange={e => setForm({ ...form, slug: e.target.value })} />
               </div>

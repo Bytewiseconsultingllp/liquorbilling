@@ -13,7 +13,7 @@ export default function HomePage() {
       `}</style>
 
       <nav className="flex items-center justify-between px-10 py-5 bg-white/70 backdrop-blur-md border-b border-blue-100/80 sticky top-0 z-40">
-        <span style={{ fontFamily: "'Playfair Display', serif" }} className="text-xl font-bold text-blue-700 tracking-tight">Tenantify</span>
+        <span style={{ fontFamily: "'Playfair Display', serif" }} className="text-xl font-bold text-blue-700 tracking-tight">Liquor Billing</span>
         <div className="flex gap-3">
           <Link href="/login" className="px-5 py-2 text-sm font-medium text-slate-600 hover:text-blue-700 border border-slate-200 rounded-full hover:border-blue-300 transition-all bg-white">Sign in</Link>
           <Link href="/register" className="btn-primary px-5 py-2 text-sm font-semibold text-white rounded-full">Get started</Link>
@@ -30,7 +30,7 @@ export default function HomePage() {
           <span style={{ background: "linear-gradient(135deg, #2563EB, #0EA5E9)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>beautifully organized.</span>
         </h1>
         <p className="text-lg text-slate-500 max-w-xl mb-10 leading-relaxed font-light">
-          Tenantify gives your team a dedicated workspace with user management, role-based access, and powerful admin tools — all in one place.
+          Liquor Billing gives your team a dedicated workspace with user management, role-based access, and powerful admin tools — all in one place.
         </p>
         <div className="flex gap-4">
           <Link href="/register" className="btn-primary px-8 py-3.5 text-base font-semibold text-white rounded-full">Create your workspace →</Link>
@@ -59,7 +59,7 @@ export default function HomePage() {
       </section>
 
       <footer className="px-10 py-6 border-t border-blue-100 text-center text-sm text-slate-400 bg-white">
-        © {new Date().getFullYear()} Tenantify. Built with care.
+        © {new Date().getFullYear()} Liquor Billing. Built with care.
       </footer>
     </main>
   )

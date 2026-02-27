@@ -10,7 +10,7 @@ export default function SuspendedPage() {
         <p className="text-slate-500 text-sm leading-relaxed mb-8">
           Your organization's workspace has been suspended. Please contact support to resolve this issue.
         </p>
-        <a href="mailto:support@tenantify.com"
+        <a href="mailto:support@Liquor Billing.com"
           className="inline-flex items-center gap-2 px-7 py-3 text-white text-sm font-semibold rounded-full transition-all"
           style={{ background: "linear-gradient(135deg, #DC2626, #EF4444)", boxShadow: "0 4px 20px rgba(220,38,38,0.3)" }}>
           Contact support

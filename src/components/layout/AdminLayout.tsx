@@ -24,7 +24,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             </svg>
           </div>
           <div>
-            <p className="text-sm font-semibold text-stone-900">Tenantify</p>
+            <p className="text-sm font-semibold text-stone-900">Liquor Billing</p>
             <p className="text-xs text-stone-400 -mt-0.5">Admin Panel</p>
           </div>
         </div>

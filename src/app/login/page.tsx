@@ -68,7 +68,7 @@ export default function LoginPage() {
 
       {/* Left panel */}
       <div className="hidden lg:flex w-1/2 flex-col justify-between p-14" style={{ background: "linear-gradient(160deg, #1E3A8A 0%, #0EA5E9 100%)" }}>
-        <span style={{ fontFamily: "'Playfair Display', serif" }} className="text-white text-2xl font-bold">Tenantify</span>
+        <span style={{ fontFamily: "'Playfair Display', serif" }} className="text-white text-2xl font-bold">Liquor Billing</span>
         <div>
           <div className="w-12 h-1 rounded-full bg-sky-300 mb-8 opacity-80"></div>
           <blockquote style={{ fontFamily: "'Playfair Display', serif" }} className="text-white/90 text-3xl leading-snug mb-6">
