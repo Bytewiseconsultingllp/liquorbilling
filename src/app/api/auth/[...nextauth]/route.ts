@@ -10,21 +10,23 @@ export const authOptions: NextAuthOptions = {
     strategy: "jwt",
   },
 
-  cookies: {
-    sessionToken: {
-      name: "next-auth.session-token",
-      options: {
-        httpOnly: true,
-        sameSite: "lax",
-        path: "/",
-        secure: process.env.NODE_ENV === "production",
-          domain:
-            process.env.NODE_ENV === "production"
-              ? (process.env.VERCEL === "1" ? ".vercel.app" : ".liquorbilling.in")
-              : undefined,
-      },
-    },
-  },
+  // cookies: {
+  //   sessionToken: {
+  //     name: "next-auth.session-token",
+  //     options: {
+  //       httpOnly: true,
+  //       sameSite: "lax",
+  //       path: "/",
+  //       secure: process.env.NODE_ENV === "production",
+  //       domain:
+  //         process.env.NODE_ENV === "production"
+  //           ? process.env.VERCEL === "1"
+  //             ? ".vercel.app"
+  //             : ".liquorbilling.in"
+  //           : undefined,
+  //     },
+  //   },
+  // },
 
   providers: [
     CredentialsProvider({
@@ -52,6 +54,8 @@ export const authOptions: NextAuthOptions = {
           user.passwordHash,
         );
 
+        console.log("User:", user);
+        console.log("Password match:", isValid);
         if (!isValid) return null;
 
         const tenant = user.tenantId
