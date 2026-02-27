@@ -55,11 +55,23 @@ export default function LoginPage() {
 
     const res = await signIn("credentials", { email, password, redirect: false });
     if (res?.error) { setError("Invalid email or password"); setLoading(false); return; }
+
+    console.log("Login successful, fetching session...", res);
     const sessionRes = await fetch("/api/auth/session");
+    console.log("Session response:", sessionRes);
     const session = await sessionRes.json();
+    if (!session || !session.user) {
+      setError("Login failed. Please try again or contact support.");
+      setLoading(false);
+      return;
+    }
+    
     if (session.user.isPlatformAdmin) router.push("/admin");
     else if (session.user.tenantSlug) router.push(`/${session.user.tenantSlug}/dashboard`);
-    else { setError("Your workspace is not yet set up. Please contact support."); setLoading(false); }
+    else {
+      setError("Your workspace is not yet set up. Please contact support.");
+      setLoading(false);
+    }
   };
 
   return (

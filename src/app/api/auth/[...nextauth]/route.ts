@@ -18,10 +18,10 @@ export const authOptions: NextAuthOptions = {
         sameSite: "lax",
         path: "/",
         secure: process.env.NODE_ENV === "production",
-        domain:
-          process.env.NODE_ENV === "production"
-            ? ".liquorbilling.in"
-            : undefined,
+          domain:
+            process.env.NODE_ENV === "production"
+              ? (process.env.VERCEL === "1" ? ".vercel.app" : ".liquorbilling.in")
+              : undefined,
       },
     },
   },
