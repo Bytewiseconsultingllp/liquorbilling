@@ -55,23 +55,12 @@ export default function LoginPage() {
 
     const res = await signIn("credentials", { email, password, redirect: false });
     if (res?.error) { setError("Invalid email or password"); setLoading(false); return; }
-
-    console.log("Login successful, fetching session...", res);
     const sessionRes = await fetch("/api/auth/session");
-    console.log("Session response:", sessionRes);
     const session = await sessionRes.json();
-    if (!session || !session.user) {
-      setError("Login failed. Please try again or contact support.");
-      setLoading(false);
-      return;
-    }
-    
+    console.log("Session after login:", session);
     if (session.user.isPlatformAdmin) router.push("/admin");
     else if (session.user.tenantSlug) router.push(`/${session.user.tenantSlug}/dashboard`);
-    else {
-      setError("Your workspace is not yet set up. Please contact support.");
-      setLoading(false);
-    }
+    else { setError("Your workspace is not yet set up. Please contact support."); setLoading(false); }
   };
 
   return (
@@ -80,7 +69,7 @@ export default function LoginPage() {
 
       {/* Left panel */}
       <div className="hidden lg:flex w-1/2 flex-col justify-between p-14" style={{ background: "linear-gradient(160deg, #1E3A8A 0%, #0EA5E9 100%)" }}>
-        <span style={{ fontFamily: "'Playfair Display', serif" }} className="text-white text-2xl font-bold">Liquor Billing</span>
+        <span style={{ fontFamily: "'Playfair Display', serif" }} className="text-white text-2xl font-bold">Tenantify</span>
         <div>
           <div className="w-12 h-1 rounded-full bg-sky-300 mb-8 opacity-80"></div>
           <blockquote style={{ fontFamily: "'Playfair Display', serif" }} className="text-white/90 text-3xl leading-snug mb-6">
