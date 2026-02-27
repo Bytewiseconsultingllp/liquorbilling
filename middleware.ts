@@ -18,6 +18,11 @@ export function middleware(req: NextRequest) {
     return NextResponse.next()
   }
 
+  // Vercel preview/production domains — treat as root (no subdomain)
+  if (host.endsWith(".vercel.app")) {
+    return NextResponse.next()
+  }
+
   // Extract subdomain
   const parts = host.split(".")
 
