@@ -8,7 +8,7 @@ declare module "next-auth" {
       isPlatformAdmin?: boolean
       tenantId?: string | null
       tenantSlug?: string | null
-      role?: "owner" | "admin" | "member"
+      role?: "owner" | "admin" | "manager" | "sales" | "accountant" | "tax_officer"
     } & DefaultSession["user"]
   }
 
@@ -18,7 +18,7 @@ declare module "next-auth" {
     isPlatformAdmin?: boolean
     tenantId?: string | null
     tenantSlug?: string | null
-    role?: "owner" | "admin" | "member"
+    role?: "owner" | "admin" | "manager" | "sales" | "accountant" | "tax_officer"
   }
 }
 
@@ -28,6 +28,6 @@ declare module "next-auth/jwt" {
     isPlatformAdmin?: boolean
     tenantId?: string | null
     tenantSlug?: string | null
-    role?: "owner" | "admin" | "member"
+    role?: "owner" | "admin" | "manager" | "sales" | "accountant" | "tax_officer"
   }
 }

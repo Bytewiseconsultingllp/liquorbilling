@@ -3,10 +3,112 @@
 import Image from "next/image";
 import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 
-interface Product { _id: string; name: string; pricePerUnit: number; currentStock: number; category?: string; imageUrl?: string; morningStockLastUpdatedDate?: string; barcodes?: { code: string }[] }
+/** Extract actual image URL from Google Images / redirector wrapper URLs */
+function extractImageUrl(raw: string): string {
+  const trimmed = raw.trim()
+  if (!trimmed.startsWith("http")) return trimmed
+  try {
+    const u = new URL(trimmed)
+    const imgurl = u.searchParams.get("imgurl")
+    if (imgurl) return imgurl
+    if (u.hostname.includes("google") && (u.searchParams.get("url") || u.searchParams.get("q"))) {
+      const target = u.searchParams.get("url") || u.searchParams.get("q") || ""
+      if (target.startsWith("http")) return target
+    }
+  } catch { /* not a valid URL, return as-is */ }
+  return trimmed
+}
+
+interface Product { _id: string; name: string; pricePerUnit: number; currentStock: number; volumeML: number; category?: string; imageUrl?: string; morningStockLastUpdatedDate?: string; barcodes?: { code: string }[] }
 interface Customer { _id: string; name: string; creditLimit?: number; outstandingBalance?: number; maxDiscountPercentage?: number; contactInfo?: { phone?: string; email?: string } }
-interface CartItem { productId: string; productName: string; quantity: number; pricePerUnit: number; discountValue: number; discountAmount: number; totalAmount: number }
+interface CartItem { productId: string; productName: string; quantity: number; pricePerUnit: number; volumeML: number; discountValue: number; discountAmount: number; totalAmount: number }
 interface RecentSale { _id: string; saleNumber: string; customerName: string; totalAmount: number; paidAmount: number; dueAmount: number; saleDate: string; items: { productName: string; quantity: number }[] }
+
+/* ── Thermal Print Helpers ─────────────────────────────────────── */
+const INR = (n: number) => (n ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+const fmtDt = (d: string | Date) => new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })
+
+function thermalCSS(): string {
+  return `
+    @page { size: 80mm auto; margin: 0; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Courier New', monospace; font-size: 12px; color: #000; width: 80mm; padding: 4mm; }
+    .center { text-align: center; }
+    .bold { font-weight: 700; }
+    .line { border-top: 1px dashed #000; margin: 4px 0; }
+    .dbl-line { border-top: 2px solid #000; margin: 6px 0; }
+    .shop { font-size: 16px; font-weight: 900; text-transform: uppercase; letter-spacing: 1px; }
+    .sub-title { font-size: 11px; margin-top: 2px; }
+    .meta { font-size: 11px; margin: 2px 0; }
+    table { width: 100%; border-collapse: collapse; margin: 4px 0; }
+    th, td { font-size: 11px; padding: 2px 0; vertical-align: top; }
+    th { text-align: left; font-weight: 700; border-bottom: 1px solid #000; }
+    .r { text-align: right; }
+    .summary-row { display: flex; justify-content: space-between; font-size: 12px; padding: 1px 0; }
+    .summary-row.total { font-size: 14px; font-weight: 900; }
+    .footer-msg { font-size: 10px; margin-top: 8px; }
+  `
+}
+
+function thermalPrint(html: string) {
+  const w = window.open("", "_blank", "width=320,height=600")
+  if (!w) return
+  w.document.write(html); w.document.close()
+  w.onload = () => { w.focus(); w.print() }
+}
+
+interface PrintBillData { saleNumber: string; saleDate: string; customerName: string; items: { productName: string; quantity: number; pricePerUnit: number; discountAmount?: number; totalAmount: number }[]; totalAmount: number; billDiscountAmount: number; cashAmount: number; onlineAmount: number; creditAmount: number; dueAmount: number; subBillCount: number }
+interface PrintSubBillData { saleNumber: string; saleDate: string; customerName: string; idx: number; totalSubs: number; items: { productName: string; quantity: number; pricePerUnit: number; discountAmount?: number; totalAmount: number }[]; totalDiscountAmount: number; totalAmount: number; cashPaidAmount: number; onlinePaidAmount: number; creditPaidAmount: number }
+
+function buildItemRows(items: { productName: string; quantity: number; pricePerUnit: number; discountAmount?: number; totalAmount: number }[]): string {
+  let html = `<table><thead><tr><th>Item</th><th class="r">Qty</th><th class="r">Rate</th><th class="r">Amt</th></tr></thead><tbody>`
+  for (const it of items) {
+    html += `<tr><td>${it.productName}</td><td class="r">${it.quantity}</td><td class="r">${INR(it.pricePerUnit)}</td><td class="r">${INR(it.totalAmount)}</td></tr>`
+    if ((it.discountAmount || 0) > 0) html += `<tr><td colspan="3" style="font-size:10px;color:#555;padding-left:8px">Disc</td><td class="r" style="font-size:10px;color:#555">-${INR(it.discountAmount!)}</td></tr>`
+  }
+  return html + `</tbody></table>`
+}
+
+function doPrintFullBill(d: PrintBillData) {
+  const subtotal = d.items.reduce((a, b) => a + b.quantity * b.pricePerUnit, 0)
+  const totalDisc = d.items.reduce((a, b) => a + (b.discountAmount || 0), 0) + d.billDiscountAmount
+  const html = `<!DOCTYPE html><html><head><style>${thermalCSS()}</style></head><body>
+    <div class="center shop">LIQUOR BILL</div><div class="center sub-title">Tax Invoice</div><div class="dbl-line"></div>
+    <div class="meta"><b>Bill:</b> ${d.saleNumber}</div>
+    <div class="meta"><b>Date:</b> ${fmtDt(d.saleDate)}</div>
+    <div class="meta"><b>Customer:</b> ${d.customerName}</div>
+    <div class="line"></div>${buildItemRows(d.items)}<div class="dbl-line"></div>
+    <div class="summary-row"><span>Subtotal</span><span>${INR(subtotal)}</span></div>
+    ${totalDisc > 0 ? `<div class="summary-row"><span>Discount</span><span>-${INR(totalDisc)}</span></div>` : ""}
+    <div class="line"></div><div class="summary-row total"><span>TOTAL</span><span>${INR(d.totalAmount)}</span></div><div class="line"></div>
+    ${d.cashAmount > 0 ? `<div class="summary-row"><span>Cash</span><span>${INR(d.cashAmount)}</span></div>` : ""}
+    ${d.onlineAmount > 0 ? `<div class="summary-row"><span>Online</span><span>${INR(d.onlineAmount)}</span></div>` : ""}
+    ${d.creditAmount > 0 ? `<div class="summary-row"><span>Credit</span><span>${INR(d.creditAmount)}</span></div>` : ""}
+    ${d.dueAmount > 0 ? `<div class="summary-row" style="color:red"><span>Due</span><span>${INR(d.dueAmount)}</span></div>` : ""}
+    ${d.subBillCount > 1 ? `<div style="margin-top:4px;font-size:10px;text-align:center;color:#555">(Split into ${d.subBillCount} sub-bills)</div>` : ""}
+    <div class="dbl-line"></div><div class="center footer-msg">Thank you for your purchase!</div>
+    <div class="center footer-msg" style="margin-top:2px">--- End of Bill ---</div></body></html>`
+  thermalPrint(html)
+}
+
+function doPrintSubBill(d: PrintSubBillData) {
+  const subtotal = d.items.reduce((a, b) => a + b.quantity * b.pricePerUnit, 0)
+  const html = `<!DOCTYPE html><html><head><style>${thermalCSS()}</style></head><body>
+    <div class="center shop">LIQUOR BILL</div><div class="center sub-title">Sub-Bill ${d.idx + 1} of ${d.totalSubs}</div><div class="dbl-line"></div>
+    <div class="meta"><b>Bill:</b> ${d.saleNumber}</div>
+    <div class="meta"><b>Date:</b> ${fmtDt(d.saleDate)}</div>
+    <div class="meta"><b>Customer:</b> ${d.customerName}</div>
+    <div class="line"></div>${buildItemRows(d.items)}<div class="dbl-line"></div>
+    <div class="summary-row"><span>Subtotal</span><span>${INR(subtotal)}</span></div>
+    ${d.totalDiscountAmount > 0 ? `<div class="summary-row"><span>Discount</span><span>-${INR(d.totalDiscountAmount)}</span></div>` : ""}
+    <div class="line"></div><div class="summary-row total"><span>TOTAL</span><span>${INR(d.totalAmount)}</span></div><div class="line"></div>
+    ${d.cashPaidAmount > 0 ? `<div class="summary-row"><span>Cash</span><span>${INR(d.cashPaidAmount)}</span></div>` : ""}
+    ${d.onlinePaidAmount > 0 ? `<div class="summary-row"><span>Online</span><span>${INR(d.onlinePaidAmount)}</span></div>` : ""}
+    ${d.creditPaidAmount > 0 ? `<div class="summary-row"><span>Credit</span><span>${INR(d.creditPaidAmount)}</span></div>` : ""}
+    <div class="dbl-line"></div><div class="center footer-msg">Thank you for your purchase!</div>
+    <div class="center footer-msg" style="margin-top:2px">--- End of Sub-Bill ---</div></body></html>`
+  thermalPrint(html)
+}
 
 function ProductOverlay({ product, effectiveStock, existingItem, isWalkIn, maxDiscountPerUnit, onConfirm, onClose }: {
   product: Product; effectiveStock: number; existingItem?: CartItem; isWalkIn: boolean; maxDiscountPerUnit: number;
@@ -98,6 +200,9 @@ export default function SalesPOSPage() {
   const [recentSales, setRecentSales] = useState<RecentSale[]>([])
   const [showRecent, setShowRecent] = useState(false)
   const [showOutOfStock, setShowOutOfStock] = useState(false)
+  const [customerSearch, setCustomerSearch] = useState("")
+  const [customerDropdownOpen, setCustomerDropdownOpen] = useState(false)
+  const customerDropdownRef = useRef<HTMLDivElement>(null)
 
   // ── Barcode Scanner ──────────────────────────────────────
   const [scannerActive, setScannerActive] = useState(false)
@@ -175,6 +280,32 @@ export default function SalesPOSPage() {
     loadRecentSales()
   }, [loadProducts, loadCustomers, loadRecentSales])
 
+  // Close customer dropdown on outside click
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (customerDropdownRef.current && !customerDropdownRef.current.contains(e.target as Node)) {
+        setCustomerDropdownOpen(false)
+      }
+    }
+    document.addEventListener("mousedown", handleClick)
+    return () => document.removeEventListener("mousedown", handleClick)
+  }, [])
+
+  const filteredCustomers = useMemo(() => {
+    if (!customerSearch.trim()) return customers
+    const q = customerSearch.toLowerCase()
+    return customers.filter(c => c.name.toLowerCase().includes(q) || c.contactInfo?.phone?.includes(q))
+  }, [customers, customerSearch])
+
+  const selectCustomer = (id: string) => {
+    setSelectedCustomer(id)
+    const cust = customers.find(c => c._id === id)
+    setCustomerSearch(cust?.name || "")
+    setCustomerDropdownOpen(false)
+    setBillDiscountValue(0)
+    if (!id) setPaymentMode("cash")
+  }
+
   // Compute min selectable date from morningStockLastUpdatedDate
   const minSaleDate = useMemo(() => {
     const dates = products
@@ -225,7 +356,7 @@ export default function SalesPOSPage() {
   const recalcItem = (item: CartItem, qty: number, discountValue: number): CartItem => {
     const base = qty * item.pricePerUnit
     const discountAmount = discountValue * qty
-    return { ...item, quantity: qty, discountValue, discountAmount: Math.min(discountAmount, base), totalAmount: Math.max(0, base - discountAmount) }
+    return { ...item, quantity: qty, discountValue, discountAmount: Math.min(discountAmount, base), totalAmount: Math.max(0, base - discountAmount), volumeML: item.volumeML }
   }
 
   const openOverlay = (product: Product) => {
@@ -244,7 +375,7 @@ export default function SalesPOSPage() {
     } else {
       const base = qty * overlayProduct.pricePerUnit
       const discountAmount = discountValue * qty
-      setCart(prev => [...prev, { productId: overlayProduct._id, productName: overlayProduct.name, quantity: qty, pricePerUnit: overlayProduct.pricePerUnit, discountValue, discountAmount: Math.min(discountAmount, base), totalAmount: Math.max(0, base - discountAmount) }])
+      setCart(prev => [...prev, { productId: overlayProduct._id, productName: overlayProduct.name, quantity: qty, pricePerUnit: overlayProduct.pricePerUnit, volumeML: overlayProduct.volumeML || 0, discountValue, discountAmount: Math.min(discountAmount, base), totalAmount: Math.max(0, base - discountAmount) }])
     }
     setOverlayProduct(null)
   }
@@ -255,24 +386,26 @@ export default function SalesPOSPage() {
   const recalcFromOnline = (v: number) => { if (v < 0) return; const capped = Math.min(v, totalAmount); setOnlineAmount(capped); if (paymentMode === "cash") setCashAmount(Math.max(0, totalAmount - capped)); else setCreditAmount(Math.max(0, totalAmount - cashAmount - capped)) }
   const recalcFromCredit = (v: number) => { if (v < 0) return; setCreditAmount(v); setCashAmount(Math.max(0, totalAmount - v - onlineAmount)) }
 
-  // Split cart into sub-bills of ≤ ₹2,50,000
+  // Split cart into sub-bills of ≤ 2500 ML total volume
   const splitIntoBills = (items: CartItem[]): CartItem[][] => {
-    const LIMIT = 250000
-    const grandTotal = items.reduce((a, b) => a + b.totalAmount, 0)
-    if (grandTotal <= LIMIT) return [items]
-    const bills: CartItem[][] = []; let cur: CartItem[] = []; let curTotal = 0
-    for (const item of items) {
+    const VOLUME_LIMIT = 2500
+    const grandVolume = items.reduce((a, b) => a + b.volumeML * b.quantity, 0)
+    if (grandVolume <= VOLUME_LIMIT) return [items]
+    // Sort items by volumeML descending for better packing
+    const sorted = [...items].sort((a, b) => b.volumeML - a.volumeML)
+    const bills: CartItem[][] = []; let cur: CartItem[] = []; let curVolume = 0
+    for (const item of sorted) {
       let remaining = item.quantity
-      const net = Math.max(item.pricePerUnit - item.discountValue, 1)
       while (remaining > 0) {
-        const space = LIMIT - curTotal
-        if (space <= 0) { bills.push(cur); cur = []; curTotal = 0; continue }
-        const qty = Math.min(remaining, Math.max(1, Math.floor(space / net)))
+        const spaceML = VOLUME_LIMIT - curVolume
+        if (spaceML <= 0 || (item.volumeML > 0 && spaceML < item.volumeML)) { bills.push(cur); cur = []; curVolume = 0; continue }
+        const maxQtyByVol = item.volumeML > 0 ? Math.floor(spaceML / item.volumeML) : remaining
+        const qty = Math.min(remaining, Math.max(1, maxQtyByVol))
         const disc = item.discountValue * qty
         const line = Math.max(0, qty * item.pricePerUnit - disc)
         cur.push({ ...item, quantity: qty, discountAmount: disc, totalAmount: line })
-        curTotal += line; remaining -= qty
-        if (curTotal >= LIMIT) { bills.push(cur); cur = []; curTotal = 0 }
+        curVolume += item.volumeML * qty; remaining -= qty
+        if (curVolume >= VOLUME_LIMIT) { bills.push(cur); cur = []; curVolume = 0 }
       }
     }
     if (cur.length > 0) bills.push(cur)
@@ -286,7 +419,7 @@ export default function SalesPOSPage() {
     if (selectedDate) { const chosen = new Date(selectedDate); chosen.setHours(now.getHours(), now.getMinutes(), now.getSeconds()); finalDate = chosen }
     if (minSaleDate && finalDate < new Date(minSaleDate)) return alert("Cannot create a bill before the morning stock date (" + minSaleDate + ")")
 
-    // Build sub-bills of ≤ ₹2,50,000 each
+    // Build sub-bills of ≤ 2500 ML volume each
     const billParts = splitIntoBills(cart)
     const subBills = billParts.map(bi => {
       const biSubBefore = bi.reduce((a, b) => a + b.quantity * b.pricePerUnit, 0)
@@ -334,8 +467,32 @@ export default function SalesPOSPage() {
     })
     const data = await res.json()
     if (!res.ok) return alert(data.error)
-    alert(`Sale completed!${subBills.length > 1 ? ` (Split into ${subBills.length} sub-bills)` : ""}`)
-    setCart([]); setCashAmount(0); setOnlineAmount(0); setCreditAmount(0); setSelectedCustomer(""); setSelectedDate(""); setBillDiscountValue(0); setPaymentMode("cash")
+
+    // Auto-print thermal receipt
+    const saleDate = finalDate.toISOString()
+    const custName = selectedCustomerObj?.name || "Walk-In"
+    const allItems = cart.map(c => ({ productName: c.productName, quantity: c.quantity, pricePerUnit: c.pricePerUnit, discountAmount: c.discountAmount, totalAmount: c.totalAmount }))
+    const saleNum = data.saleNumber || data._id || ""
+
+    if (subBills.length > 1) {
+      // Print each sub-bill on separate receipt
+      subBills.forEach((sb, i) => {
+        setTimeout(() => doPrintSubBill({
+          saleNumber: saleNum, saleDate, customerName: custName, idx: i, totalSubs: subBills.length,
+          items: sb.items.map((it: any) => ({ productName: it.productName, quantity: it.quantity, pricePerUnit: it.pricePerUnit, discountAmount: it.discountAmount, totalAmount: it.totalAmount })),
+          totalDiscountAmount: sb.totalDiscountAmount, totalAmount: sb.totalAmount,
+          cashPaidAmount: sb.cashPaidAmount, onlinePaidAmount: sb.onlinePaidAmount, creditPaidAmount: sb.creditPaidAmount,
+        }), i * 600)
+      })
+    } else {
+      doPrintFullBill({
+        saleNumber: saleNum, saleDate, customerName: custName, items: allItems,
+        totalAmount, billDiscountAmount, cashAmount, onlineAmount, creditAmount,
+        dueAmount: Math.max(0, totalAmount - cashAmount - onlineAmount), subBillCount: 1,
+      })
+    }
+
+    setCart([]); setCashAmount(0); setOnlineAmount(0); setCreditAmount(0); setSelectedCustomer(""); setCustomerSearch(""); setSelectedDate(""); setBillDiscountValue(0); setPaymentMode("cash")
     loadProducts(); loadRecentSales(); loadCustomers()
   }
 
@@ -359,12 +516,46 @@ export default function SalesPOSPage() {
       <div className="w-3/5 flex flex-col overflow-hidden border-r border-blue-100">
         <div className="px-6 py-4 bg-white border-b border-blue-100">
           <div className="flex items-center gap-4">
-            <div className="flex-1">
+            <div className="flex-1" ref={customerDropdownRef}>
               <label className="text-xs font-semibold text-blue-400 uppercase tracking-widest mb-1 block">Customer</label>
-              <select value={selectedCustomer} onChange={e => { setSelectedCustomer(e.target.value); setBillDiscountValue(0); if (!e.target.value) setPaymentMode("cash") }} className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-400">
-                <option value="">Walk-In Customer</option>
-                {customers.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
-              </select>
+              <div className="relative">
+                <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" /></svg>
+                <input
+                  value={customerSearch}
+                  onChange={e => { setCustomerSearch(e.target.value); setCustomerDropdownOpen(true); if (!e.target.value) { setSelectedCustomer(""); setBillDiscountValue(0); setPaymentMode("cash") } }}
+                  onFocus={() => setCustomerDropdownOpen(true)}
+                  placeholder="Search or Walk-In…"
+                  className="w-full pl-9 pr-8 border border-slate-200 rounded-xl px-3 py-2 text-sm bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                />
+                {selectedCustomer && (
+                  <button onClick={() => { setSelectedCustomer(""); setCustomerSearch(""); setBillDiscountValue(0); setPaymentMode("cash"); setCustomerDropdownOpen(false) }}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-slate-200 hover:bg-red-100 hover:text-red-500 flex items-center justify-center text-slate-400 transition-colors">
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                  </button>
+                )}
+                {customerDropdownOpen && (
+                  <div className="absolute z-50 top-full mt-1 left-0 w-full bg-white border border-slate-200 rounded-xl shadow-xl max-h-56 overflow-y-auto">
+                    <button type="button" onClick={() => selectCustomer("")} className={`w-full text-left px-4 py-2.5 text-sm hover:bg-blue-50 transition-colors flex items-center gap-2 ${!selectedCustomer ? "bg-blue-50 font-semibold text-blue-700" : "text-slate-700"}`}>
+                      <span className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-[10px] text-slate-400">?</span>
+                      Walk-In Customer
+                    </button>
+                    {filteredCustomers.map(c => (
+                      <button type="button" key={c._id} onClick={() => selectCustomer(c._id)}
+                        className={`w-full text-left px-4 py-2.5 text-sm hover:bg-blue-50 transition-colors flex items-center justify-between ${selectedCustomer === c._id ? "bg-blue-50 font-semibold text-blue-700" : "text-slate-700"}`}>
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-[10px] font-bold shrink-0">{c.name[0]}</span>
+                          <div className="min-w-0">
+                            <span className="block truncate">{c.name}</span>
+                            {c.contactInfo?.phone && <span className="block text-[10px] text-slate-400 font-mono">{c.contactInfo.phone}</span>}
+                          </div>
+                        </div>
+                        {(c.outstandingBalance || 0) > 0 && <span className="text-[10px] font-mono text-red-400 shrink-0 ml-2">₹{c.outstandingBalance!.toLocaleString("en-IN")}</span>}
+                      </button>
+                    ))}
+                    {filteredCustomers.length === 0 && <p className="px-4 py-3 text-xs text-slate-400 text-center">No customers found</p>}
+                  </div>
+                )}
+              </div>
             </div>
             {!isWalkIn && (
               <div>
@@ -479,7 +670,7 @@ export default function SalesPOSPage() {
                 )}
                 {inCart && <span className="absolute top-2.5 right-2.5 w-4 h-4 rounded-full bg-blue-500 z-20" />}
                 {p.imageUrl && (
-                  <Image src={p.imageUrl} alt={p.name} width={12} height={12} className="absolute bottom-2.5 right-2.5 w-12 h-12 rounded-md object-cover border border-slate-100 z-20" />
+                  <Image src={extractImageUrl(p.imageUrl)} alt={p.name} width={12} height={12} className="absolute bottom-2.5 right-2.5 w-12 h-12 rounded-md object-cover border border-slate-100 z-20" />
                 )}
                 <p className="font-medium text-sm leading-tight mb-2 text-slate-800 pr-4">{p.name}</p>
                 <p className="font-mono text-base font-semibold text-blue-600">₹{p.pricePerUnit.toLocaleString("en-IN")}</p>

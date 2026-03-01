@@ -69,6 +69,10 @@ const purchaseSchema = new mongoose.Schema(
     notes: String,
     invoiceNumber: String,
 
+    isReturned: { type: Boolean, default: false },
+    returnedAt: Date,
+    returnedBy: String,
+
     createdBy: String,
   },
   { timestamps: true }

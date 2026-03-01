@@ -10,23 +10,21 @@ export const authOptions: NextAuthOptions = {
     strategy: "jwt",
   },
 
-  // cookies: {
-  //   sessionToken: {
-  //     name: "next-auth.session-token",
-  //     options: {
-  //       httpOnly: true,
-  //       sameSite: "lax",
-  //       path: "/",
-  //       secure: process.env.NODE_ENV === "production",
-  //       domain:
-  //         process.env.NODE_ENV === "production"
-  //           ? process.env.VERCEL === "1"
-  //             ? ".vercel.app"
-  //             : ".liquorbilling.in"
-  //           : undefined,
-  //     },
-  //   },
-  // },
+  cookies: {
+    sessionToken: {
+      name: "next-auth.session-token",
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
+        domain:
+          process.env.NODE_ENV === "production"
+            ? ".liquorbilling.in"
+            : undefined,
+      },
+    },
+  },
 
   providers: [
     CredentialsProvider({
@@ -81,7 +79,7 @@ export const authOptions: NextAuthOptions = {
         session.user.isPlatformAdmin = token.isPlatformAdmin as boolean;
         session.user.tenantId = token.tenantId as string | null;
         session.user.tenantSlug = token.tenantSlug as string | null;
-        session.user.role = token.role as "owner" | "admin" | "member";
+        session.user.role = token.role as "owner" | "admin" | "manager" | "sales" | "accountant" | "tax_officer";
       }
 
       return session;

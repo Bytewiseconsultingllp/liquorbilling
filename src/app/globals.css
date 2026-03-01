@@ -37,3 +37,14 @@ html {
 ::-webkit-scrollbar-thumb:hover {
   background: #a8a29e;
 }
+
+/* Disable scroll-to-change on number inputs */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}

@@ -40,8 +40,8 @@ const userSchema = new mongoose.Schema(
 
     role: {
       type: String,
-      enum: ["owner", "admin", "member"],
-      default: "member",
+      enum: ["owner", "admin", "manager", "sales", "accountant", "tax_officer"],
+      default: "sales",
     },
 
     isPlatformAdmin: {

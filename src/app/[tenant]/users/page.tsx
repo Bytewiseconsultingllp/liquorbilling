@@ -9,7 +9,7 @@ const inputCls = "w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate
 const errCls = "text-xs text-red-500 mt-1"
 
 interface UserForm { name: string; email: string; password: string; role: string; employmentType: string; salary: number }
-const emptyForm: UserForm = { name: "", email: "", password: "", role: "member", employmentType: "employee", salary: 0 }
+const emptyForm: UserForm = { name: "", email: "", password: "", role: "sales", employmentType: "employee", salary: 0 }
 
 function validate(f: UserForm, isEdit: boolean): Record<string, string> {
   const e: Record<string, string> = {}
@@ -24,7 +24,7 @@ function validate(f: UserForm, isEdit: boolean): Record<string, string> {
 }
 
 function downloadTemplate() {
-  const csv = "name,email,password,role,employmentType,salary\nJohn Doe,john@example.com,pass1234,member,employee,25000\nJane Smith,jane@example.com,pass1234,admin,non-employee,"
+  const csv = "name,email,password,role,employmentType,salary\nJohn Doe,john@example.com,pass1234,sales,employee,25000\nJane Smith,jane@example.com,pass1234,admin,non-employee,"
   const blob = new Blob([csv], { type: "text/csv" })
   const url = URL.createObjectURL(blob)
   const a = document.createElement("a"); a.href = url; a.download = "users_template.csv"; a.click()
@@ -94,6 +94,16 @@ export default function TenantUsersPage() {
     fetchUsers()
   }
 
+  const toggleDisable = async (u: any) => {
+    const newStatus = u.status === "active" ? "disabled" : "active"
+    const msg = newStatus === "disabled" ? "Disable this user? They will not be able to log in." : "Re-enable this user?"
+    if (!confirm(msg)) return
+    const res = await fetch(`/api/tenant/users/${u._id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: newStatus }) })
+    const data = await res.json()
+    if (!res.ok) { alert(data.error); return }
+    fetchUsers()
+  }
+
   const setField = (k: keyof UserForm, v: any) => {
     setForm(prev => ({ ...prev, [k]: v }))
     setErrors(prev => { const n = { ...prev }; delete n[k]; return n })
@@ -140,7 +150,7 @@ export default function TenantUsersPage() {
                 <div>
                   <label className="block text-xs font-medium text-slate-500 mb-1.5">Role *</label>
                   <select className={inputCls} value={form.role} onChange={e => setField("role", e.target.value)}>
-                    <option value="member">Member</option><option value="admin">Admin</option><option value="owner">Owner</option>
+                    <option value="sales">Sales</option><option value="accountant">Accountant</option><option value="tax_officer">Tax Officer</option><option value="manager">Manager</option><option value="admin">Admin</option><option value="owner">Owner</option>
                   </select>
                 </div>
                 <div>
@@ -153,7 +163,7 @@ export default function TenantUsersPage() {
               {form.employmentType === "employee" && (
                 <div>
                   <label className="block text-xs font-medium text-slate-500 mb-1.5">Salary (₹) *</label>
-                  <input type="number" min={0} className={`${inputCls} ${errors.salary ? "!border-red-400 ring-1 ring-red-200" : ""}`} value={form.salary || ""} onChange={e => setField("salary", Number(e.target.value))} placeholder="25000" />
+                  <input type="number" min={0} className={`${inputCls} ${errors.salary ? "!border-red-400 ring-1 ring-red-200" : ""}`} value={form.salary} onChange={e => setField("salary", Number(e.target.value))} placeholder="25000" />
                   {errors.salary && <p className={errCls}>{errors.salary}</p>}
                 </div>
               )}
@@ -212,7 +222,7 @@ export default function TenantUsersPage() {
                     <td className="px-6 py-4 text-sm font-semibold text-slate-900">{u.name || "—"}</td>
                     <td className="px-6 py-4 text-sm text-slate-600">{u.email}</td>
                     <td className="px-6 py-4">
-                      <span className={`px-2.5 py-1 text-xs font-medium rounded-full border ${u.role === "owner" ? "bg-amber-50 text-amber-700 border-amber-200" : u.role === "admin" ? "bg-blue-50 text-blue-700 border-blue-200" : "bg-slate-50 text-slate-600 border-slate-200"}`}>{u.role}</span>
+                      <span className={`px-2.5 py-1 text-xs font-medium rounded-full border ${u.role === "owner" ? "bg-amber-50 text-amber-700 border-amber-200" : u.role === "admin" ? "bg-blue-50 text-blue-700 border-blue-200" : u.role === "manager" ? "bg-indigo-50 text-indigo-700 border-indigo-200" : u.role === "accountant" ? "bg-purple-50 text-purple-700 border-purple-200" : u.role === "tax_officer" ? "bg-teal-50 text-teal-700 border-teal-200" : "bg-emerald-50 text-emerald-700 border-emerald-200"}`}>{u.role === "tax_officer" ? "Tax Officer" : u.role}</span>
                     </td>
                     <td className="px-6 py-4 text-sm text-slate-500 capitalize">{u.employmentType || "—"}</td>
                     <td className="px-6 py-4 text-sm font-mono text-slate-600">{u.employmentType === "employee" && u.salary ? `₹${u.salary.toLocaleString("en-IN")}` : "—"}</td>
@@ -225,6 +235,7 @@ export default function TenantUsersPage() {
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <button onClick={() => openEdit(u)} className="px-3 py-1.5 text-xs font-medium text-blue-600 border border-blue-100 rounded-lg hover:bg-blue-50 transition-all">Edit</button>
+                        <button onClick={() => toggleDisable(u)} className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${u.status === "active" ? "text-amber-600 border border-amber-100 hover:bg-amber-50" : "text-emerald-600 border border-emerald-100 hover:bg-emerald-50"}`}>{u.status === "active" ? "Disable" : "Enable"}</button>
                         <button onClick={() => deleteUser(u._id)} className="px-3 py-1.5 text-xs font-medium text-red-500 border border-red-100 rounded-lg hover:bg-red-50 transition-all">Remove</button>
                       </div>
                     </td>

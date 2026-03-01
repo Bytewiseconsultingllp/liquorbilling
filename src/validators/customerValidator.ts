@@ -45,6 +45,7 @@ export const bulkCustomerSchema = z.array(
     address: z.string().optional(),
     gstin: z.string().optional(),
     creditLimit: z.coerce.number().min(0).max(1000000).optional(),
+    maxDiscountPercentage: z.coerce.number().min(0).max(100).optional(),
     openingBalance: z.coerce.number().min(0).optional(),
     notes: z.string().optional(),
   })

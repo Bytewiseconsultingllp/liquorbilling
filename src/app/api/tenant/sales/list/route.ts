@@ -27,7 +27,7 @@ export async function GET(req: Request) {
   const sales = await Sale.find(filter)
     .sort({ createdAt: -1 })
     .select(
-      "saleNumber saleDate customerName totalAmount paidAmount dueAmount paymentStatus paymentMode cashAmount onlineAmount creditAmount billDiscountAmount totalDiscount type isReturned status items"
+      "saleNumber saleDate customerName totalAmount paidAmount dueAmount paymentStatus paymentMode cashAmount onlineAmount creditAmount billDiscountAmount totalDiscount type isReturned status items subBills"
     )
 
   return NextResponse.json(sales)

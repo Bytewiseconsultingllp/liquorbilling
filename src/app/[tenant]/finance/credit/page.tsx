@@ -129,6 +129,7 @@ export default function CreditManagementPage() {
   const [payments, setPayments] = useState<CreditPayment[]>([])
   const [customerSales, setCustomerSales] = useState<Sale[]>([])
   const [viewingSale, setViewingSale] = useState<Sale | null>(null)
+  const [collecting, setCollecting] = useState(false)
   const totalAmount = cashAmount + onlineAmount
 
   useEffect(() => {
@@ -155,17 +156,22 @@ export default function CreditManagementPage() {
     if (totalAmount <= 0) return alert("Invalid amount")
     if (!selectedCustomerObj) return
     if (totalAmount > selectedCustomerObj.outstandingBalance) return alert("Amount exceeds outstanding balance")
-    const res = await fetch("/api/tenant/finance/credit", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ customerId: selectedCustomer, cashAmount, onlineAmount, note: "Manual credit collection", creditDate: creditDate || undefined }),
-    })
-    const data = await res.json()
-    if (!res.ok) return alert(data.error)
-    alert("Payment collected"); setCashAmount(0); setOnlineAmount(0); setCreditDate("")
-    // Re-fetch customer list and refresh
-    const cRes = await fetch("/api/tenant/customers?limit=all").then(r => r.json())
-    setCustomers(cRes.data || [])
-    refreshData(selectedCustomer)
+    setCollecting(true)
+    try {
+      const res = await fetch("/api/tenant/finance/credit", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ customerId: selectedCustomer, cashAmount, onlineAmount, note: "Manual credit collection", creditDate: creditDate || undefined }),
+      })
+      const data = await res.json()
+      if (!res.ok) return alert(data.error)
+      alert("Payment collected"); setCashAmount(0); setOnlineAmount(0); setCreditDate("")
+      // Re-fetch customer list and refresh
+      const cRes = await fetch("/api/tenant/customers?limit=all").then(r => r.json())
+      setCustomers(cRes.data || [])
+      refreshData(selectedCustomer)
+    } finally {
+      setCollecting(false)
+    }
   }
 
   const cancelPayment = async (id: string) => {
@@ -239,9 +245,10 @@ export default function CreditManagementPage() {
                 <span className="font-semibold text-slate-900">₹ {fmt(totalAmount)}</span>
               </div>
 
-              <button onClick={collectPayment} disabled={!selectedCustomer} className="w-full py-3 text-white text-sm font-semibold rounded-xl disabled:opacity-40 disabled:cursor-not-allowed"
+              <button onClick={collectPayment} disabled={!selectedCustomer || collecting} className="w-full py-3 text-white text-sm font-semibold rounded-xl disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 style={{ background: "linear-gradient(135deg, #2563EB, #0EA5E9)", boxShadow: "0 4px 16px rgba(37,99,235,0.3)" }}>
-                Collect Payment →
+                {collecting && <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>}
+                {collecting ? "Collecting…" : "Collect Payment →"}
               </button>
             </div>
 

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useRef } from "react"
 import Papa from "papaparse"
 
 const STYLE = `@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@300;400;500;600&display=swap');
@@ -42,14 +42,19 @@ export default function VendorPage() {
   const [showModal, setShowModal] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
 
-  const fetchVendors = useCallback(async () => {
+  // Drag-and-drop state
+  const dragItem = useRef<number | null>(null)
+  const dragOverItem = useRef<number | null>(null)
+  const [dragging, setDragging] = useState(false)
+
+  const fetchVendors = useCallback(async (signal?: AbortSignal) => {
     try {
-      const res = await fetch(`/api/tenant/vendors?q=${search}&page=${page}`)
+      const res = await fetch(`/api/tenant/vendors?q=${search}&page=${page}`, { signal })
       const data = await res.json()
       setVendors(data.data || []); setTotalPages(data.pagination?.totalPages || 1)
-    } catch { console.error("Failed to fetch vendors") }
+    } catch (e: unknown) { if (e instanceof DOMException && e.name === "AbortError") return; console.error("Failed to fetch vendors") }
   }, [search, page])
-  useEffect(() => { fetchVendors() }, [fetchVendors])
+  useEffect(() => { const ac = new AbortController(); fetchVendors(ac.signal); return () => ac.abort() }, [fetchVendors])
 
   const openCreate = () => { setForm({ ...emptyForm }); setErrors({}); setApiError(""); setEditId(null); setShowModal(true) }
   const openEdit = (v: any) => {
@@ -108,6 +113,40 @@ export default function VendorPage() {
   const setField = (k: keyof VForm, v: any) => {
     setForm(prev => ({ ...prev, [k]: v }))
     setErrors(prev => { const n = { ...prev }; delete n[k]; return n })
+  }
+
+  // ── Drag-and-drop priority reorder ──
+  const handleDragStart = (index: number) => {
+    dragItem.current = index
+    setDragging(true)
+  }
+  const handleDragEnter = (index: number) => {
+    dragOverItem.current = index
+  }
+  const handleDragEnd = async () => {
+    setDragging(false)
+    if (dragItem.current === null || dragOverItem.current === null || dragItem.current === dragOverItem.current) {
+      dragItem.current = null; dragOverItem.current = null; return
+    }
+    const fromIdx = dragItem.current
+    const toIdx = dragOverItem.current
+    const draggedVendor = vendors[fromIdx]
+    const targetVendor = vendors[toIdx]
+    dragItem.current = null; dragOverItem.current = null
+
+    // Optimistic reorder
+    const reordered = [...vendors]
+    const [removed] = reordered.splice(fromIdx, 1)
+    reordered.splice(toIdx, 0, removed)
+    setVendors(reordered)
+
+    // Send PATCH with new priority (target vendor's priority)
+    const newPriority = targetVendor.priority
+    const res = await fetch(`/api/tenant/vendors/${draggedVendor._id}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ priority: newPriority }),
+    })
+    if (!res.ok) { fetchVendors() } else { fetchVendors() }
   }
 
   const priorityStyle = (p: number) =>
@@ -218,7 +257,7 @@ export default function VendorPage() {
           <div>
             <p className="text-xs font-semibold text-blue-500 uppercase tracking-widest mb-1">Suppliers</p>
             <h1 style={{ fontFamily: "'Playfair Display', serif" }} className="text-3xl font-bold text-slate-900">Vendors</h1>
-            <p className="text-slate-500 text-sm mt-1">Manage your supplier relationships</p>
+            <p className="text-slate-500 text-sm mt-1">Manage your supplier relationships · <span className="text-blue-500">Drag rows to reorder priority</span></p>
           </div>
           <div className="flex gap-2">
             <button onClick={downloadTemplate} className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-600 border border-slate-200 bg-white rounded-xl hover:border-blue-300 hover:text-blue-600 cursor-pointer transition-all shadow-sm">
@@ -248,16 +287,25 @@ export default function VendorPage() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50/50">
-                  {["Vendor Name", "TIN", "Priority", "Contact", "GSTIN", "Phone", ""].map(h => (
-                    <th key={h} className={`text-xs font-semibold text-slate-400 uppercase tracking-wider px-5 py-4 ${h === "" ? "text-right" : "text-left"}`}>{h}</th>
+                  {["", "Vendor Name", "TIN", "Priority", "Contact", "GSTIN", "Phone", ""].map((h, i) => (
+                    <th key={i} className={`text-xs font-semibold text-slate-400 uppercase tracking-wider px-5 py-4 ${h === "" && "w-8"} text-left`}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {vendors.map(v => {
+                {vendors.map((v, index) => {
                   const ps = priorityStyle(v.priority)
                   return (
-                    <tr key={v._id} className="hover:bg-blue-50/30 transition-colors">
+                    <tr key={v._id}
+                      draggable
+                      onDragStart={() => handleDragStart(index)}
+                      onDragEnter={() => handleDragEnter(index)}
+                      onDragEnd={handleDragEnd}
+                      onDragOver={e => e.preventDefault()}
+                      className={`hover:bg-blue-50/30 transition-colors cursor-grab active:cursor-grabbing ${dragging && dragItem.current === index ? "opacity-50" : ""}`}>
+                      <td className="px-3 py-4 w-8">
+                        <svg className="w-4 h-4 text-slate-300" fill="currentColor" viewBox="0 0 20 20"><path d="M7 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm6 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM7 8a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm6 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM7 14a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm6 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4z" /></svg>
+                      </td>
                       <td className="px-5 py-4 text-sm font-semibold text-slate-900">{v.name}</td>
                       <td className="px-5 py-4 text-sm font-mono text-slate-500">{v.tin || "—"}</td>
                       <td className="px-5 py-4">

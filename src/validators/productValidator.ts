@@ -11,6 +11,8 @@ export const createProductSchema = z.object({
   reorderLevel: z.number().int().min(0, "Cannot be negative").optional(),
   purchasePricePerCaret: z.number().min(0, "Cannot be negative").optional(),
   imageUrl: z.string().url().optional(),
+  imageBase64: z.string().optional(),
+  imageMimeType: z.string().optional(),
 })
 
 export const updateProductSchema = z.object({
@@ -23,6 +25,9 @@ export const updateProductSchema = z.object({
   bottlesPerCaret: z.number().int().min(1).optional(),
   reorderLevel: z.number().int().min(0).optional(),
   purchasePricePerCaret: z.number().min(0).optional(),
+  imageUrl: z.string().optional(),
+  imageBase64: z.string().optional(),
+  imageMimeType: z.string().optional(),
 })
 
 export const bulkProductSchema = z.array(
@@ -38,6 +43,7 @@ export const bulkProductSchema = z.array(
     purchasePricePerCaret: z.coerce.number().min(0).optional(),
     barcodes: z.string().optional(),
     imageUrl: z.string().optional(),
+    imageBase64: z.string().optional(),
     morningStock: z.coerce.number().min(0).optional(),
     morningStockLastUpdatedDate: z.string().optional(),
   })

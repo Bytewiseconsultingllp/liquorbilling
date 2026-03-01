@@ -33,7 +33,7 @@ function validate(f: CForm): Record<string, string> {
 }
 
 function downloadTemplate() {
-  const csv = "name,type,phone,email,address,gstin,creditLimit,openingBalance,notes\nJohn Doe,Retail,9876543210,john@email.com,123 Main St,,50000,0,Regular customer\nABC Corp,B2B,9123456780,abc@corp.com,Business Park,27AAACB1234F1ZT,500000,10000,Monthly billing"
+  const csv = "name,type,phone,email,address,gstin,creditLimit,maxDiscountPercentage,openingBalance,notes\nJohn Doe,Retail,9876543210,john@email.com,123 Main St,,50000,5,0,Regular customer\nABC Corp,B2B,9123456780,abc@corp.com,Business Park,27AAACB1234F1ZT,500000,10,10000,Monthly billing"
   const blob = new Blob([csv], { type: "text/csv" })
   const url = URL.createObjectURL(blob)
   const a = document.createElement("a"); a.href = url; a.download = "customers_template.csv"; a.click()
@@ -76,6 +76,7 @@ export default function TenantCustomersPage() {
         const rows = (results.data as any[]).map(r => ({
           ...r,
           creditLimit: r.creditLimit ? Number(r.creditLimit) : 0,
+          maxDiscountPercentage: r.maxDiscountPercentage ? Number(r.maxDiscountPercentage) : 0,
           openingBalance: r.openingBalance ? Number(r.openingBalance) : 0,
         }))
         const res = await fetch("/api/tenant/customers/bulk", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(rows) })
@@ -169,18 +170,18 @@ export default function TenantCustomersPage() {
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-slate-500 mb-1.5">Credit Limit (₹)</label>
-                  <input type="number" min={0} max={1000000} className={`${inputCls} ${errors.creditLimit ? "!border-red-400 ring-1 ring-red-200" : ""}`} value={form.creditLimit || ""} onChange={e => setField("creditLimit", Number(e.target.value))} placeholder="Max ₹10,00,000" />
+                  <input type="number" min={0} max={1000000} className={`${inputCls} ${errors.creditLimit ? "!border-red-400 ring-1 ring-red-200" : ""}`} value={form.creditLimit} onChange={e => setField("creditLimit", Number(e.target.value))} placeholder="Max ₹10,00,000" />
                   {errors.creditLimit && <p className={errCls}>{errors.creditLimit}</p>}
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-slate-500 mb-1.5">Max Discount (%)</label>
-                  <input type="number" min={0} max={100} className={`${inputCls} ${errors.maxDiscountPercentage ? "!border-red-400 ring-1 ring-red-200" : ""}`} value={form.maxDiscountPercentage || ""} onChange={e => setField("maxDiscountPercentage", Number(e.target.value))} placeholder="e.g. 10" />
+                  <input type="number" min={0} max={100} className={`${inputCls} ${errors.maxDiscountPercentage ? "!border-red-400 ring-1 ring-red-200" : ""}`} value={form.maxDiscountPercentage} onChange={e => setField("maxDiscountPercentage", Number(e.target.value))} placeholder="e.g. 10" />
                   {errors.maxDiscountPercentage && <p className={errCls}>{errors.maxDiscountPercentage}</p>}
                 </div>
                 {!editId && (
                   <div>
                     <label className="block text-xs font-medium text-slate-500 mb-1.5">Opening Balance (₹)</label>
-                    <input type="number" min={0} className={`${inputCls} ${errors.openingBalance ? "!border-red-400 ring-1 ring-red-200" : ""}`} value={form.openingBalance || ""} onChange={e => setField("openingBalance", Number(e.target.value))} />
+                    <input type="number" min={0} className={`${inputCls} ${errors.openingBalance ? "!border-red-400 ring-1 ring-red-200" : ""}`} value={form.openingBalance} onChange={e => setField("openingBalance", Number(e.target.value))} />
                     {errors.openingBalance && <p className={errCls}>{errors.openingBalance}</p>}
                   </div>
                 )}

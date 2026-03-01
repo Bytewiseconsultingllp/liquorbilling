@@ -12,11 +12,11 @@ interface Purchase {
   _id: string; purchaseNumber: string; vendorName: string; purchaseDate: string;
   subtotal: number; vatRate: number; vatAmount: number; tcsRate: number; tcsAmount: number;
   taxAmount: number; totalAmount: number; paymentStatus: string; paidAmount: number; dueAmount: number;
-  items: PurchaseItem[]; createdAt: string; notes?: string;
+  items: PurchaseItem[]; createdAt: string; notes?: string; isReturned?: boolean;
 }
 
 /* ──── Detail Overlay ──── */
-function DetailOverlay({ purchase, onClose }: { purchase: Purchase; onClose: () => void }) {
+function DetailOverlay({ purchase, onClose, onReturn }: { purchase: Purchase; onClose: () => void; onReturn: (id: string) => void }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(15,23,42,0.5)", backdropFilter: "blur(6px)" }} onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 overflow-hidden border border-blue-100 max-h-[90vh] flex flex-col">
@@ -26,6 +26,7 @@ function DetailOverlay({ purchase, onClose }: { purchase: Purchase; onClose: () 
             <p className="text-xs font-semibold text-blue-500 uppercase tracking-wider mb-0.5">Purchase Detail</p>
             <h3 className="font-semibold text-slate-800 text-lg">{purchase.purchaseNumber}</h3>
             <p className="text-xs text-slate-400 mt-1">{purchase.vendorName} · {new Date(purchase.purchaseDate || purchase.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</p>
+            {purchase.isReturned && <span className="inline-block mt-2 px-2.5 py-1 text-xs font-semibold rounded-full bg-red-50 text-red-600 border border-red-200">RETURNED</span>}
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors ml-3 mt-0.5 w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
@@ -86,6 +87,13 @@ function DetailOverlay({ purchase, onClose }: { purchase: Purchase; onClose: () 
               <p className="text-lg font-bold text-blue-700 capitalize">{purchase.paymentStatus}</p>
             </div>
           </div>
+
+          {/* Return Button */}
+          {!purchase.isReturned && (
+            <button onClick={() => onReturn(purchase._id)} className="w-full py-3 text-sm font-semibold text-red-600 border-2 border-red-200 rounded-xl hover:bg-red-50 transition-all">
+              ↩ Return This Purchase
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -97,16 +105,31 @@ export default function ManagePurchasesPage() {
   const [purchases, setPurchases] = useState<Purchase[]>([])
   const [selectedPurchase, setSelectedPurchase] = useState<Purchase | null>(null)
   const [search, setSearch] = useState("")
+  const [returning, setReturning] = useState(false)
 
-  useEffect(() => {
-    fetch("/api/tenant/purchases").then(r => r.json()).then(d => setPurchases(d.data || []))
-  }, [])
+  const fetchPurchases = (signal?: AbortSignal) => {
+    fetch("/api/tenant/purchases", { signal }).then(r => r.json()).then(d => setPurchases(d.data || [])).catch(() => {})
+  }
+
+  useEffect(() => { const ac = new AbortController(); fetchPurchases(ac.signal); return () => ac.abort() }, [])
 
   const filtered = purchases.filter(p => {
     if (!search.trim()) return true
     const q = search.toLowerCase()
     return p.purchaseNumber.toLowerCase().includes(q) || p.vendorName?.toLowerCase().includes(q)
   })
+
+  const handleReturn = async (id: string) => {
+    if (!confirm("Return this purchase? This will reverse stock changes.")) return
+    setReturning(true)
+    const res = await fetch(`/api/tenant/purchases/${id}/return`, { method: "POST" })
+    const data = await res.json()
+    setReturning(false)
+    if (!res.ok) { alert(data.error || "Failed to return purchase"); return }
+    alert("Purchase returned successfully")
+    setSelectedPurchase(null)
+    fetchPurchases()
+  }
 
   const statusBadge = (s: string) => {
     const map: Record<string, string> = {
@@ -125,7 +148,7 @@ export default function ManagePurchasesPage() {
         <div className="mb-6">
           <p className="text-xs font-semibold text-blue-500 uppercase tracking-widest mb-1">Procurement</p>
           <h1 style={{ fontFamily: "'Playfair Display', serif" }} className="text-3xl font-bold text-slate-900">Manage Purchases</h1>
-          <p className="text-slate-500 text-sm mt-1">View all purchase records</p>
+          <p className="text-slate-500 text-sm mt-1">View all purchase records and process returns</p>
         </div>
 
         {/* Search */}
@@ -147,8 +170,11 @@ export default function ManagePurchasesPage() {
               </thead>
               <tbody>
                 {filtered.map(p => (
-                  <tr key={p._id} className="border-t border-slate-50 hover:bg-blue-50/20 transition-colors">
-                    <td className="px-5 py-4 font-mono text-xs text-blue-600 font-medium">{p.purchaseNumber}</td>
+                  <tr key={p._id} className={`border-t border-slate-50 hover:bg-blue-50/20 transition-colors ${p.isReturned ? "opacity-60" : ""}`}>
+                    <td className="px-5 py-4 font-mono text-xs text-blue-600 font-medium">
+                      {p.purchaseNumber}
+                      {p.isReturned && <span className="ml-2 px-1.5 py-0.5 text-[10px] font-semibold rounded bg-red-100 text-red-500">RET</span>}
+                    </td>
                     <td className="px-5 py-4 text-slate-500">{new Date(p.purchaseDate || p.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</td>
                     <td className="px-5 py-4 font-medium text-slate-900">{p.vendorName}</td>
                     <td className="px-5 py-4 text-slate-500">{p.items?.length || 0}</td>
@@ -159,10 +185,18 @@ export default function ManagePurchasesPage() {
                       <span className={`px-2.5 py-1 text-xs font-medium rounded-full border capitalize ${statusBadge(p.paymentStatus)}`}>{p.paymentStatus}</span>
                     </td>
                     <td className="px-5 py-4 text-center">
-                      <button onClick={() => setSelectedPurchase(p)}
-                        className="w-8 h-8 rounded-lg bg-blue-50 text-blue-500 hover:bg-blue-100 flex items-center justify-center mx-auto transition-colors" title="View Detail">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-                      </button>
+                      <div className="flex items-center justify-center gap-2">
+                        <button onClick={() => setSelectedPurchase(p)}
+                          className="w-8 h-8 rounded-lg bg-blue-50 text-blue-500 hover:bg-blue-100 flex items-center justify-center transition-colors" title="View Detail">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                        </button>
+                        {!p.isReturned && (
+                          <button onClick={() => handleReturn(p._id)} disabled={returning}
+                            className="w-8 h-8 rounded-lg bg-red-50 text-red-400 hover:bg-red-100 hover:text-red-600 flex items-center justify-center transition-colors disabled:opacity-40" title="Return Purchase">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -174,7 +208,7 @@ export default function ManagePurchasesPage() {
       </div>
 
       {/* Detail overlay */}
-      {selectedPurchase && <DetailOverlay purchase={selectedPurchase} onClose={() => setSelectedPurchase(null)} />}
+      {selectedPurchase && <DetailOverlay purchase={selectedPurchase} onClose={() => setSelectedPurchase(null)} onReturn={handleReturn} />}
     </div>
   )
 }

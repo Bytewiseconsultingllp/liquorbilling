@@ -33,6 +33,7 @@ const navLinks: NavItem[] = [
     children: [
       { href: "finance/cashbook", label: "Cashbook" },
       { href: "finance/credit", label: "Credit" },
+      { href: "finance/expenses", label: "Expenses" },
       { href: "finance/customer-ledger", label: "Customer Ledger" },
       { href: "finance/vendor-ledger", label: "Vendor Ledger" },
     ]

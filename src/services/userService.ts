@@ -72,6 +72,7 @@ export class UserService {
     if (parsed.employmentType !== undefined) updateData.employmentType = parsed.employmentType;
     if (parsed.employmentType === "non-employee") updateData.salary = 0;
     else if (parsed.salary !== undefined) updateData.salary = parsed.salary;
+    if (parsed.status !== undefined) updateData.status = parsed.status;
 
     const updated = await User.findByIdAndUpdate(userId, updateData, { returnDocument: "after" });
 
@@ -89,7 +90,7 @@ export class UserService {
 
   static async updateUserRole(
     userId: string,
-    newRole: "owner" | "admin" | "member",
+    newRole: "owner" | "admin" | "manager" | "sales" | "accountant" | "tax_officer",
     currentUserId: string,
   ) {
     const user = await User.findById(userId);

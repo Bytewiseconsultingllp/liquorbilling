@@ -77,6 +77,7 @@ export class CustomerService {
         type: c.type,
         contactInfo: { phone: c.phone, email: c.email, address: c.address, gstin: c.gstin },
         creditLimit: c.creditLimit || 0,
+        maxDiscountPercentage: c.maxDiscountPercentage || 0,
         openingBalance: c.openingBalance || 0,
         outstandingBalance: c.openingBalance || 0,
         notes: c.notes,
