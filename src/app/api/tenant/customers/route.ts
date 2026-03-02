@@ -22,6 +22,8 @@ export async function GET(req: Request) {
 
   const skip = all ? 0 : (page - 1) * limit;
 
+  const type = searchParams.get("type") || "";
+
   const filter: any = {
     organizationId: session.user.tenantId,
     status: { $ne: "deleted" },
@@ -29,6 +31,10 @@ export async function GET(req: Request) {
 
   if (query) {
     filter.name = { $regex: query, $options: "i" };
+  }
+
+  if (type) {
+    filter.type = type;
   }
 
   // const [customers, total] = await Promise.all([

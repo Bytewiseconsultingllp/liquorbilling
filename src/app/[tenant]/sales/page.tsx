@@ -200,6 +200,7 @@ export default function SalesPOSPage() {
   const [recentSales, setRecentSales] = useState<RecentSale[]>([])
   const [showRecent, setShowRecent] = useState(false)
   const [showOutOfStock, setShowOutOfStock] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
   const [customerSearch, setCustomerSearch] = useState("")
   const [customerDropdownOpen, setCustomerDropdownOpen] = useState(false)
   const customerDropdownRef = useRef<HTMLDivElement>(null)
@@ -415,8 +416,14 @@ export default function SalesPOSPage() {
   const completeSale = async () => {
     if (cart.length === 0) return alert("Cart is empty")
     if (isWalkIn && paymentMode === "credit") return alert("Credit is not available for walk-in customers")
+    setSubmitting(true)
     const now = new Date(); let finalDate = now
-    if (selectedDate) { const chosen = new Date(selectedDate); chosen.setHours(now.getHours(), now.getMinutes(), now.getSeconds()); finalDate = chosen }
+    if (selectedDate) {
+      // Build date from selected YYYY-MM-DD (IST date) + current IST time
+      const [y, m, d] = selectedDate.split("-").map(Number)
+      const chosen = new Date(y, m - 1, d, now.getHours(), now.getMinutes(), now.getSeconds())
+      finalDate = chosen
+    }
     if (minSaleDate && finalDate < new Date(minSaleDate)) return alert("Cannot create a bill before the morning stock date (" + minSaleDate + ")")
 
     // Build sub-bills of ≤ 2500 ML volume each
@@ -466,6 +473,7 @@ export default function SalesPOSPage() {
       }),
     })
     const data = await res.json()
+    setSubmitting(false)
     if (!res.ok) return alert(data.error)
 
     // Auto-print thermal receipt
@@ -792,9 +800,10 @@ export default function SalesPOSPage() {
               </p>
             )}
 
-            <button onClick={completeSale} disabled={cart.length === 0} className="w-full py-2.5 rounded-xl font-semibold text-sm text-white transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+            <button onClick={completeSale} disabled={cart.length === 0 || submitting} className="w-full py-2.5 rounded-xl font-semibold text-sm text-white transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               style={{ background: "linear-gradient(135deg, #2563EB, #0EA5E9)", boxShadow: "0 4px 16px rgba(37,99,235,0.3)" }}>
-              Complete Sale →
+              {submitting && <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>}
+              {submitting ? "Processing…" : "Complete Sale →"}
             </button>
           </div>
         </div>

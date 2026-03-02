@@ -53,7 +53,9 @@ function fmt(n: number | undefined | null): string {
 }
 
 function todayStr(): string {
-  return new Date().toISOString().split("T")[0];
+  const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000
+  const ist = new Date(Date.now() + IST_OFFSET_MS)
+  return ist.toISOString().split("T")[0];
 }
 
 // ─── Component ────────────────────────────────────────────────────
@@ -353,8 +355,9 @@ export default function ReportsPage() {
             {
               label: "Yesterday",
               fn: () => {
-                const y = new Date();
-                y.setDate(y.getDate() - 1);
+                const IST = 5.5 * 60 * 60 * 1000
+                const y = new Date(Date.now() + IST)
+                y.setUTCDate(y.getUTCDate() - 1)
                 const d = y.toISOString().split("T")[0];
                 setStartDate(d);
                 setEndDate(d);
@@ -363,9 +366,10 @@ export default function ReportsPage() {
             {
               label: "Last 7 Days",
               fn: () => {
-                const e = new Date();
-                const s = new Date();
-                s.setDate(s.getDate() - 6);
+                const IST = 5.5 * 60 * 60 * 1000
+                const e = new Date(Date.now() + IST)
+                const s = new Date(Date.now() + IST)
+                s.setUTCDate(s.getUTCDate() - 6)
                 setStartDate(s.toISOString().split("T")[0]);
                 setEndDate(e.toISOString().split("T")[0]);
               },
@@ -373,8 +377,9 @@ export default function ReportsPage() {
             {
               label: "This Month",
               fn: () => {
-                const now = new Date();
-                const s = new Date(now.getFullYear(), now.getMonth(), 1);
+                const IST = 5.5 * 60 * 60 * 1000
+                const now = new Date(Date.now() + IST)
+                const s = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1))
                 setStartDate(s.toISOString().split("T")[0]);
                 setEndDate(now.toISOString().split("T")[0]);
               },
@@ -382,9 +387,10 @@ export default function ReportsPage() {
             {
               label: "Last Month",
               fn: () => {
-                const now = new Date();
-                const s = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-                const e = new Date(now.getFullYear(), now.getMonth(), 0);
+                const IST = 5.5 * 60 * 60 * 1000
+                const now = new Date(Date.now() + IST)
+                const s = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1))
+                const e = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 0))
                 setStartDate(s.toISOString().split("T")[0]);
                 setEndDate(e.toISOString().split("T")[0]);
               },

@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 import { connectDB } from "@/db/connection"
 import { LedgerEntry } from "@/models/LedgerEntry"
+import { startOfDayIST, endOfDayIST } from "@/lib/timezone"
 
 export async function GET(
   req: Request,
@@ -32,8 +33,8 @@ export async function GET(
 
   if (startDate && endDate) {
     filter.createdAt = {
-      $gte: new Date(startDate),
-      $lte: new Date(endDate),
+      $gte: startOfDayIST(new Date(startDate)),
+      $lte: endOfDayIST(new Date(endDate)),
     }
   }
 

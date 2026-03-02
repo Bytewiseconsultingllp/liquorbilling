@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 import { connectDB } from "@/db/connection"
 import { CashbookEntry } from "@/models/CashbookEntry"
+import { startOfDayIST, endOfDayIST } from "@/lib/timezone"
 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions)
@@ -15,11 +16,8 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
   const date = searchParams.get("date")
 
-  const start = new Date(date!)
-  start.setHours(0,0,0)
-
-  const end = new Date(date!)
-  end.setHours(23,59,59)
+  const start = startOfDayIST(new Date(date!))
+  const end = endOfDayIST(new Date(date!))
 
   const entries = await CashbookEntry.find({
     organizationId: session.user.tenantId,

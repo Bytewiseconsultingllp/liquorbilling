@@ -6,6 +6,7 @@ import { User } from "@/models/User"
 import { Product } from "@/models/Product"
 import { Customer } from "@/models/Customer"
 import { Sale } from "@/models/Sale"
+import { startOfDayIST, endOfDayIST } from "@/lib/timezone"
 
 export async function GET() {
   const session = await getServerSession(authOptions)
@@ -16,10 +17,8 @@ export async function GET() {
   await connectDB()
   const tenantId = session.user.tenantId
 
-  const startOfDay = new Date()
-  startOfDay.setHours(0, 0, 0, 0)
-  const endOfDay = new Date()
-  endOfDay.setHours(23, 59, 59, 999)
+  const startOfDay = startOfDayIST()
+  const endOfDay = endOfDayIST()
 
   const [
     totalUsers,

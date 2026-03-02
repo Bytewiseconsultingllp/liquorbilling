@@ -5,14 +5,13 @@ import { Purchase } from "@/models/Purchase";
 import { CreditPayment } from "@/models/CreditPayment";
 import { CashbookEntry } from "@/models/CashbookEntry";
 import { Product } from "@/models/Product";
+import { startOfDayIST, endOfDayIST } from "@/lib/timezone";
 
 const toObjectId = (id: string) => new mongoose.Types.ObjectId(id);
 
 function buildDateFilter(startDate: string, endDate: string) {
-  const start = new Date(startDate);
-  start.setHours(0, 0, 0, 0);
-  const end = new Date(endDate);
-  end.setHours(23, 59, 59, 999);
+  const start = startOfDayIST(new Date(startDate));
+  const end = endOfDayIST(new Date(endDate));
   return { $gte: start, $lte: end };
 }
 

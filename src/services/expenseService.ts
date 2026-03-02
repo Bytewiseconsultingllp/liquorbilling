@@ -2,6 +2,7 @@ import mongoose from "mongoose"
 import { Expense, ExpenseCategory } from "@/models/Expense"
 import { AuditService } from "@/services/auditService"
 import { CashbookService } from "@/services/cashbookService"
+import { startOfDayIST, endOfDayIST } from "@/lib/timezone"
 
 export class ExpenseService {
   /* ────────── Categories ────────── */
@@ -63,11 +64,9 @@ export class ExpenseService {
     if (paymentMode) filter.paymentMode = paymentMode
     if (startDate || endDate) {
       filter.expenseDate = {}
-      if (startDate) filter.expenseDate.$gte = new Date(startDate)
+      if (startDate) filter.expenseDate.$gte = startOfDayIST(new Date(startDate))
       if (endDate) {
-        const end = new Date(endDate)
-        end.setHours(23, 59, 59, 999)
-        filter.expenseDate.$lte = end
+        filter.expenseDate.$lte = endOfDayIST(new Date(endDate))
       }
     }
 
@@ -176,11 +175,9 @@ export class ExpenseService {
     const match: any = { organizationId, status: { $ne: "deleted" } }
     if (startDate || endDate) {
       match.expenseDate = {}
-      if (startDate) match.expenseDate.$gte = new Date(startDate)
+      if (startDate) match.expenseDate.$gte = startOfDayIST(new Date(startDate))
       if (endDate) {
-        const end = new Date(endDate)
-        end.setHours(23, 59, 59, 999)
-        match.expenseDate.$lte = end
+        match.expenseDate.$lte = endOfDayIST(new Date(endDate))
       }
     }
 

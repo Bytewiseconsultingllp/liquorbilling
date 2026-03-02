@@ -3,6 +3,7 @@ import { Product } from "@/models/Product";
 import { VendorStock } from "@/models/VendorStock";
 import { Sale } from "@/models/Sale";
 import { StockClosing } from "@/models/StockClosing";
+import { endOfDayIST, startOfDayIST } from "@/lib/timezone";
 import { monitorEventLoopDelay } from "perf_hooks";
 
 export class InventoryService {
@@ -207,9 +208,8 @@ export class InventoryService {
       // Generate disc sale number
       const saleNumber = "disc-" + Date.now();
 
-      // Disc bill time = today 23:59:59
-      const discBillDate = new Date();
-      discBillDate.setHours(23, 59, 59, 0);
+      // Disc bill time = end of today in IST
+      const discBillDate = endOfDayIST();
 
       const sale = await Sale.create(
         [
@@ -250,10 +250,9 @@ export class InventoryService {
         { session },
       );
 
-      // Update morningStockLastUpdatedDate for ALL products to next day 00:00:01
-      const nextDay = new Date();
-      nextDay.setDate(nextDay.getDate());
-      nextDay.setHours(0, 0, 1, 0);
+      // Update morningStockLastUpdatedDate for ALL products to next day 00:00:01 IST
+      const nextDayStart = startOfDayIST();
+      const nextDay = new Date(nextDayStart.getTime() + 24 * 60 * 60 * 1000 + 1000); // next day 00:00:01 IST
 
       await Product.updateMany(
         { organizationId },

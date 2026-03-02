@@ -4,6 +4,7 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 import { connectDB } from "@/db/connection"
 import { SaleService } from "@/services/saleService"
 import { Sale } from "@/models/Sale"
+import { startOfDayIST, endOfDayIST } from "@/lib/timezone"
 
 export async function GET() {
   const session = await getServerSession(authOptions)
@@ -12,11 +13,9 @@ export async function GET() {
   }
   await connectDB()
 
-  // Return today's sales
-  const startOfDay = new Date()
-  startOfDay.setHours(0, 0, 0, 0)
-  const endOfDay = new Date()
-  endOfDay.setHours(23, 59, 59, 999)
+  // Return today's sales (IST boundaries)
+  const startOfDay = startOfDayIST()
+  const endOfDay = endOfDayIST()
 
   const sales = await Sale.find({
     organizationId: session.user.tenantId,

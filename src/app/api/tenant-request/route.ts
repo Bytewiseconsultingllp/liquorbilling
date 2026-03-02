@@ -5,6 +5,7 @@ import { User } from "@/models/User"
 import { tenantRequestSchema } from "@/lib/validation/tenantRequest"
 import { NextResponse } from "next/server"
 import bcrypt from "bcrypt"
+import { sendRegistrationEmail } from "@/lib/mailService"
 
 export async function POST(req: Request) {
   await connectDB()
@@ -64,6 +65,13 @@ export async function POST(req: Request) {
     phone: phone || "",
     address: address || "",
   })
+
+  // Send registration confirmation email (non-blocking)
+  try {
+    await sendRegistrationEmail(email, companyName, slug)
+  } catch (e) {
+    console.error("Failed to send registration email:", e)
+  }
 
   return NextResponse.json({ message: "Request submitted successfully", requestId: request._id })
 }

@@ -24,7 +24,7 @@ const navLinks: NavItem[] = [
   },
   { href: "inventory", label: "Inventory", icon: "M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" },
   { href: "sales", label: "Sales", icon: "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z",
-    children: [{ href: "sales", label: "New Sale" }, { href: "sales/manage", label: "Manage Sales" }]
+    children: [{ href: "sales", label: "New Sale" }, { href: "sales/manage", label: "Manage Sales" }, { href: "b2b-sales", label: "B2B Sales" }]
   },
   { href: "purchases", label: "Purchases", icon: "M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z",
     children: [{ href: "purchases", label: "New Purchase" }, { href: "purchases/manage", label: "Manage Purchases" }]

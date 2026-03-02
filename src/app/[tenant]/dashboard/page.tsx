@@ -141,7 +141,7 @@ export default function TenantDashboard() {
     const blob = new Blob([html], { type: "text/html" })
     const url = URL.createObjectURL(blob)
     const a = document.createElement("a")
-    a.href = url; a.download = `stock-check-${new Date().toISOString().slice(0, 10)}.html`; a.click()
+    a.href = url; a.download = `stock-check-${new Date(Date.now() + 5.5 * 60 * 60 * 1000).toISOString().slice(0, 10)}.html`; a.click()
     URL.revokeObjectURL(url)
   }
 

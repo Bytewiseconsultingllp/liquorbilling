@@ -6,6 +6,7 @@ import { ObjectId } from "mongodb"
 import { Product } from "@/models/Product"
 import { Purchase } from "@/models/Purchase"
 import { Sale } from "@/models/Sale"
+import { startOfDayIST, endOfDayIST } from "@/lib/timezone"
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions)
@@ -21,9 +22,8 @@ export async function POST(req: Request) {
 
   const { startDate, endDate } = await req.json()
 
-  const start = new Date(startDate)
-  const end = new Date(endDate)
-  end.setHours(23, 59, 59)
+  const start = startOfDayIST(new Date(startDate))
+  const end = endOfDayIST(new Date(endDate))
 
   const products = await Product.find({
     organizationId: session.user.tenantId,
@@ -73,6 +73,7 @@ export async function POST(req: Request) {
     result.push({
       productId: product._id,
       productName: product.name,
+      volumeML: product.volumeML || 0,
       currentStock: product.currentStock,
       morningStock: product.morningStock || 0,
       pricePerUnit: product.pricePerUnit,

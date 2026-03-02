@@ -10,7 +10,10 @@ interface CashbookEntry {
 const STYLE = `@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@300;400;500;600&display=swap');`
 
 export default function DailyCashbookPage() {
-  const [date, setDate] = useState(new Date().toISOString().split("T")[0])
+  const [date, setDate] = useState(() => {
+    const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000
+    return new Date(Date.now() + IST_OFFSET_MS).toISOString().split("T")[0]
+  })
   const [entries, setEntries] = useState<CashbookEntry[]>([])
   const [loading, setLoading] = useState(false)
 

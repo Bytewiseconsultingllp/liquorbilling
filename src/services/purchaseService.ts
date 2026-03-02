@@ -4,6 +4,7 @@ import { VendorStock } from "@/models/VendorStock";
 import { Product } from "@/models/Product";
 import { AuditService } from "@/services/auditService";
 import { LedgerService } from "./ledgerService";
+import { startOfDayIST, endOfDayIST } from "@/lib/timezone";
 
 export class PurchaseService {
   static async createPurchase(
@@ -100,10 +101,8 @@ export class PurchaseService {
   }
 
   static async getTodayPurchases(organizationId: string) {
-    const startOfDay = new Date();
-    startOfDay.setHours(0, 0, 0, 0);
-    const endOfDay = new Date();
-    endOfDay.setHours(23, 59, 59, 999);
+    const startOfDay = startOfDayIST();
+    const endOfDay = endOfDayIST();
     return Purchase.find({
       organizationId,
       createdAt: { $gte: startOfDay, $lte: endOfDay },

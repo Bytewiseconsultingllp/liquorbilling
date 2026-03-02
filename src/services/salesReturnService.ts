@@ -3,6 +3,7 @@ import { Sale } from "@/models/Sale"
 import { Product } from "@/models/Product"
 import { VendorStock } from "@/models/VendorStock"
 import { AuditLog } from "@/models/AuditLog"
+import { startOfDayIST } from "@/lib/timezone"
 
 export class SalesReturnService {
   static async returnFullSale(
@@ -36,11 +37,9 @@ export class SalesReturnService {
 
       for (const p of saleProducts) {
         if (p.morningStockLastUpdatedDate) {
-          const morningDate = new Date(p.morningStockLastUpdatedDate)
-          morningDate.setHours(0, 0, 0, 0)
-          const saleDate = new Date(originalSale.saleDate)
-          saleDate.setHours(0, 0, 0, 0)
-          if (saleDate < morningDate) {
+          const morningDay = startOfDayIST(new Date(p.morningStockLastUpdatedDate))
+          const saleDay = startOfDayIST(new Date(originalSale.saleDate))
+          if (saleDay < morningDay) {
             throw new Error(
               `Cannot return sale: sale date is before morning stock date for ${p.name}`
             )

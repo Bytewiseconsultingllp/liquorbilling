@@ -4,6 +4,7 @@ import { Tenant } from "@/models/Tenant"
 import { User } from "@/models/User"
 import { NextResponse } from "next/server"
 import mongoose from "mongoose"
+import { sendApprovalEmail, sendRejectionEmail } from "@/lib/mailService"
 
 export async function POST(req: Request) {
   await connectDB()
@@ -32,6 +33,13 @@ export async function POST(req: Request) {
     request.rejectionReason = rejectionReason || ""
     request.reviewedAt = new Date()
     await request.save()
+
+    try {
+      await sendRejectionEmail(request.requestedByEmail, request.companyName, rejectionReason)
+    } catch (e) {
+      console.error("Failed to send rejection email:", e)
+    }
+
     return NextResponse.json({ success: true, message: "Request rejected" })
   }
 
@@ -91,6 +99,15 @@ export async function POST(req: Request) {
 
     await session.commitTransaction()
     session.endSession()
+
+    // Send approval email with login link (non-blocking)
+    try {
+      const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000"
+      const loginUrl = `${baseUrl}/login`
+      await sendApprovalEmail(request.requestedByEmail, request.companyName, request.requestedSlug, loginUrl)
+    } catch (e) {
+      console.error("Failed to send approval email:", e)
+    }
 
     return NextResponse.json({ success: true, message: "Workspace approved and created" })
   } catch (err: any) {

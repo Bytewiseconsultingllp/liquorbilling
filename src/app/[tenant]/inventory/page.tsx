@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
+import * as XLSX from "xlsx";
 
 interface MovementItem {
   productId: string;
   productName: string;
+  volumeML: number;
   currentStock: number;
   morningStock: number;
   pricePerUnit: number;
@@ -36,6 +38,7 @@ export default function InventoryPage() {
   const [movementLoaded, setMovementLoaded] = useState(false);
   const [loadingMovement, setLoadingMovement] = useState(false);
   const [submittingClosing, setSubmittingClosing] = useState(false);
+  const [showClosingPreview, setShowClosingPreview] = useState(false);
 
   // History state
   const [closings, setClosings] = useState<Closing[]>([]);
@@ -129,24 +132,105 @@ export default function InventoryPage() {
     setOnlineAmount(0);
   }, [stockDifferenceValue]);
 
-  const submitClosing = async () => {
-    const closingData = movementData
+  // Sort products: by volume (ascending) first, then by name (alphabetical) within same volume
+  const sortedMovementData = useMemo(() => {
+    return [...movementData].sort((a, b) => {
+      if (a.volumeML !== b.volumeML) return a.volumeML - b.volumeML;
+      return a.productName.localeCompare(b.productName);
+    });
+  }, [movementData]);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const exportClosingTemplate = () => {
+    const rows = sortedMovementData.map(p => ({
+      "Product ID": p.productId,
+      "Product Name": p.productName,
+      "Volume (ML)": p.volumeML,
+      "Morning Stock": p.morningStock,
+      "Purchases": p.purchases,
+      "Sales": p.sales,
+      "Current Stock": p.currentStock,
+      "Closing Stock": closingStocks[p.productId] ?? "",
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    // Set column widths
+    ws["!cols"] = [
+      { wch: 26 }, // Product ID
+      { wch: 30 }, // Product Name
+      { wch: 12 }, // Volume
+      { wch: 14 }, // Morning Stock
+      { wch: 12 }, // Purchases
+      { wch: 10 }, // Sales
+      { wch: 14 }, // Current Stock
+      { wch: 14 }, // Closing Stock
+    ];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Closing Stock");
+    const today = new Date();
+    const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+    XLSX.writeFile(wb, `Closing_Stock_${dateStr}.xlsx`);
+  };
+
+  const importClosingExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const data = new Uint8Array(evt.target?.result as ArrayBuffer);
+      const wb = XLSX.read(data, { type: "array" });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json<Record<string, any>>(ws);
+      const updated: Record<string, number> = { ...closingStocks };
+      let matched = 0;
+      for (const row of rows) {
+        const id = row["Product ID"];
+        const closing = row["Closing Stock"];
+        if (id && closing !== undefined && closing !== "" && !isNaN(Number(closing))) {
+          updated[id] = Number(closing);
+          matched++;
+        }
+      }
+      setClosingStocks(updated);
+      alert(`Imported closing stock for ${matched} product${matched !== 1 ? "s" : ""}`);
+    };
+    reader.readAsArrayBuffer(file);
+    // Reset input so same file can be re-imported
+    e.target.value = "";
+  };
+
+  const buildClosingData = () => {
+    return movementData
       .filter(p => closingStocks[p.productId] !== undefined)
       .map(p => {
         const closingStock = closingStocks[p.productId];
         return {
           productId: p.productId,
+          productName: p.productName,
           closingStock,
           morningStock: p.morningStock,
+          currentStock: p.currentStock,
           purchases: p.purchases,
           sales: p.sales,
           discrepancy: getDiscrepancy(p, closingStock),
           discrepancyValue: getDiscrepancyValue(p, closingStock),
+          pricePerUnit: p.pricePerUnit,
         };
       });
+  };
+
+  const openClosingPreview = () => {
+    const data = buildClosingData();
+    if (data.length === 0) return alert("Enter closing stock for at least one product");
+    setShowClosingPreview(true);
+  };
+
+  const submitClosing = async () => {
+    const closingData = buildClosingData();
 
     if (closingData.length === 0) return alert("Enter closing stock for at least one product");
 
+    setShowClosingPreview(false);
     setSubmittingClosing(true);
     try {
       const res = await fetch("/api/tenant/inventory/closing", {
@@ -212,7 +296,7 @@ export default function InventoryPage() {
                 <svg className="w-8 h-8 animate-spin text-blue-400" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
                 <p className="text-sm text-slate-400">Loading movement data…</p>
               </div>
-            ) : movementData.length === 0 ? (
+            ) : sortedMovementData.length === 0 ? (
               <div className="py-16 text-center text-slate-400">Load movement data to see stock overview</div>
             ) : (
               <div className="overflow-x-auto">
@@ -225,7 +309,7 @@ export default function InventoryPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {movementData.map(p => {
+                    {sortedMovementData.map(p => {
                       const disc = getDiscrepancy(p);
                       const discVal = getDiscrepancyValue(p);
                       return (
@@ -271,11 +355,24 @@ export default function InventoryPage() {
                     className="w-28 px-3 py-1.5 text-sm rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500" />
                 </div>
               </div>
-              <button onClick={submitClosing} disabled={submittingClosing} className="px-6 py-2.5 text-sm font-semibold text-white rounded-xl disabled:opacity-60 flex items-center gap-2"
-                style={{ background: "linear-gradient(135deg, #2563EB, #0EA5E9)", boxShadow: "0 4px 16px rgba(37,99,235,0.25)" }}>
-                {submittingClosing && <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>}
-                {submittingClosing ? "Submitting…" : "Submit Closing"}
-              </button>
+              <div className="flex items-center gap-2 flex-wrap">
+                <input ref={fileInputRef} type="file" accept=".xlsx,.xls" onChange={importClosingExcel} className="hidden" />
+                <button onClick={exportClosingTemplate} disabled={sortedMovementData.length === 0}
+                  className="px-4 py-2.5 text-sm font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 disabled:opacity-40 flex items-center gap-2 transition-colors">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" /></svg>
+                  Export Excel
+                </button>
+                <button onClick={() => fileInputRef.current?.click()} disabled={sortedMovementData.length === 0}
+                  className="px-4 py-2.5 text-sm font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 disabled:opacity-40 flex items-center gap-2 transition-colors">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                  Import Excel
+                </button>
+                <button onClick={openClosingPreview} disabled={submittingClosing} className="px-6 py-2.5 text-sm font-semibold text-white rounded-xl disabled:opacity-60 flex items-center gap-2"
+                  style={{ background: "linear-gradient(135deg, #2563EB, #0EA5E9)", boxShadow: "0 4px 16px rgba(37,99,235,0.25)" }}>
+                  {submittingClosing && <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>}
+                  {submittingClosing ? "Submitting…" : "Submit Closing"}
+                </button>
+              </div>
             </div>
 
             <div className="bg-white rounded-2xl border border-blue-100 overflow-hidden shadow-sm">
@@ -284,7 +381,7 @@ export default function InventoryPage() {
                   <svg className="w-8 h-8 animate-spin text-blue-400" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
                   <p className="text-sm text-slate-400">Loading movement data…</p>
                 </div>
-              ) : movementData.length === 0 ? (
+              ) : sortedMovementData.length === 0 ? (
                 <div className="py-16 text-center text-slate-400">Load movement data first</div>
               ) : (
                 <div className="overflow-x-auto">
@@ -297,7 +394,7 @@ export default function InventoryPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {movementData.map(p => {
+                      {sortedMovementData.map(p => {
                         const closing = closingStocks[p.productId];
                         const hasClosing = closing !== undefined;
                         const disc = hasClosing ? getDiscrepancy(p, closing) : null;
@@ -341,6 +438,93 @@ export default function InventoryPage() {
             </div>
           </>
         )}
+
+        {/* CLOSING PREVIEW OVERLAY */}
+        {showClosingPreview && (() => {
+          const previewData = buildClosingData();
+          const totalDiscVal = previewData.reduce((a, p) => a + (p.discrepancyValue > 0 ? p.discrepancyValue : 0), 0);
+          const itemsWithDisc = previewData.filter(p => p.discrepancy !== 0);
+          return (
+            <div className="overlay-bg fixed inset-0 z-50 flex items-center justify-center p-4" onClick={e => e.target === e.currentTarget && setShowClosingPreview(false)}>
+              <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[85vh] overflow-hidden flex flex-col">
+                <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
+                  <div>
+                    <h2 style={{ fontFamily: "'Playfair Display', serif" }} className="text-xl font-bold text-slate-900">Closing Stock Preview</h2>
+                    <p className="text-xs text-slate-400 mt-0.5">{previewData.length} products · {itemsWithDisc.length} with discrepancy</p>
+                  </div>
+                  <button onClick={() => setShowClosingPreview(false)} className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-400 transition-colors">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                  </button>
+                </div>
+                <div className="overflow-y-auto flex-1">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-slate-100 bg-slate-50/50">
+                          {["Product", "Morning", "Purchases", "Sales", "System", "Closing", "Discrepancy", "Total Sale", "Disc. Value"].map(h => (
+                            <th key={h} className={`text-xs font-semibold text-slate-400 uppercase tracking-wider px-4 py-3 ${h === "Product" ? "text-left" : "text-right"}`}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {previewData.map(p => (
+                          <tr key={p.productId} className={`border-t border-slate-50 ${p.discrepancy !== 0 ? "bg-amber-50/40" : "hover:bg-blue-50/20"} transition-colors`}>
+                            <td className="px-4 py-3 font-semibold text-slate-900">{p.productName}</td>
+                            <td className="px-4 py-3 text-right text-slate-600">{p.morningStock}</td>
+                            <td className="px-4 py-3 text-right text-emerald-600 font-medium">{p.purchases}</td>
+                            <td className="px-4 py-3 text-right text-red-500 font-medium">{p.sales}</td>
+                            <td className="px-4 py-3 text-right text-slate-600">{p.currentStock}</td>
+                            <td className="px-4 py-3 text-right font-semibold text-slate-900">{p.closingStock}</td>
+                            <td className={`px-4 py-3 text-right font-bold ${p.discrepancy < 0 ? "text-red-500" : p.discrepancy > 0 ? "text-emerald-600" : "text-slate-400"}`}>
+                              {p.discrepancy}
+                            </td>
+                            <td className="px-4 py-3 text-right text-red-500 font-medium">{p.sales - p.discrepancy}</td>
+                            <td className={`px-4 py-3 text-right font-mono font-medium ${p.discrepancyValue < 0 ? "text-red-500" : p.discrepancyValue > 0 ? "text-emerald-600" : "text-slate-400"}`}>
+                              ₹{p.discrepancyValue.toLocaleString("en-IN")}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+                <div className="px-6 py-4 border-t border-slate-100">
+                  <div className="flex items-center justify-between mb-3 flex-wrap gap-3">
+                    <div className="flex gap-6">
+                      <div>
+                        <p className="text-xs text-slate-400">Stock Diff Value</p>
+                        <p className="font-bold text-slate-900">₹ {totalDiscVal.toLocaleString("en-IN")}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-400">Cash</p>
+                        <p className="font-bold text-emerald-600">₹ {cashAmount.toLocaleString("en-IN")}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-400">Online</p>
+                        <p className="font-bold text-blue-600">₹ {onlineAmount.toLocaleString("en-IN")}</p>
+                      </div>
+                    </div>
+                    {itemsWithDisc.length > 0 && (
+                      <p className="text-xs text-amber-600 bg-amber-50 px-3 py-1.5 rounded-lg border border-amber-100">
+                        ⚠ {itemsWithDisc.length} product{itemsWithDisc.length > 1 ? "s" : ""} with stock discrepancy
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex gap-3">
+                    <button onClick={() => setShowClosingPreview(false)} className="flex-1 py-2.5 text-sm font-semibold text-slate-600 bg-slate-100 rounded-xl hover:bg-slate-200 transition-colors">
+                      Back to Edit
+                    </button>
+                    <button onClick={submitClosing} disabled={submittingClosing} className="flex-1 py-2.5 text-sm font-semibold text-white rounded-xl disabled:opacity-60 flex items-center justify-center gap-2"
+                      style={{ background: "linear-gradient(135deg, #2563EB, #0EA5E9)", boxShadow: "0 4px 16px rgba(37,99,235,0.25)" }}>
+                      {submittingClosing && <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>}
+                      {submittingClosing ? "Submitting…" : "Confirm & Submit Closing"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* HISTORY TAB */}
         {tab === "history" && (

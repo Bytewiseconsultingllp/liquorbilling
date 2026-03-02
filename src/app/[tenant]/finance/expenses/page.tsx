@@ -173,7 +173,7 @@ export default function ExpensesPage() {
   const [page, setPage] = useState(1)
   const [form, setForm] = useState({
     categoryId: "", categoryName: "", amount: "", description: "",
-    expenseDate: new Date().toISOString().split("T")[0],
+    expenseDate: (() => { const IST = 5.5 * 60 * 60 * 1000; return new Date(Date.now() + IST).toISOString().split("T")[0] })(),
     paymentMode: "Cash" as string, transactionId: "", notes: "",
   })
   const [creating, setCreating] = useState(false)
@@ -231,7 +231,7 @@ export default function ExpensesPage() {
     setCreating(false)
     if (!res.ok) return alert(data.error)
     alert("Expense created")
-    setForm({ categoryId: "", categoryName: "", amount: "", description: "", expenseDate: new Date().toISOString().split("T")[0], paymentMode: "Cash", transactionId: "", notes: "" })
+    setForm({ categoryId: "", categoryName: "", amount: "", description: "", expenseDate: (() => { const IST = 5.5 * 60 * 60 * 1000; return new Date(Date.now() + IST).toISOString().split("T")[0] })(), paymentMode: "Cash", transactionId: "", notes: "" })
     setTab("list"); fetchExpenses(1); setPage(1); fetchSummary()
   }
 
