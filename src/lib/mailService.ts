@@ -76,7 +76,7 @@ export async function sendApprovalEmail(to: string, companyName: string, slug: s
     <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:20px;margin-bottom:24px;">
       <table style="width:100%;font-size:14px;color:#334155;">
         <tr><td style="padding:4px 0;font-weight:600;width:120px;">Company</td><td style="padding:4px 0;">${companyName}</td></tr>
-        <tr><td style="padding:4px 0;font-weight:600;">Workspace URL</td><td style="padding:4px 0;"><code style="background:#dcfce7;padding:2px 8px;border-radius:4px;font-size:13px;">${slug}</code></td></tr>
+        <tr><td style="padding:4px 0;font-weight:600;">Workspace URL</td><td style="padding:4px 0;"><a href="${loginUrl}" style="color:#2563EB;text-decoration:none;font-size:13px;">${loginUrl}</a></td></tr>
         <tr><td style="padding:4px 0;font-weight:600;">Login Email</td><td style="padding:4px 0;">${to}</td></tr>
       </table>
     </div>

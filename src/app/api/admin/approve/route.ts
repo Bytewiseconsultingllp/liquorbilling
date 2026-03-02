@@ -102,9 +102,13 @@ export async function POST(req: Request) {
 
     // Send approval email with login link (non-blocking)
     try {
-      const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000"
-      const loginUrl = `${baseUrl}/login`
-      await sendApprovalEmail(request.requestedByEmail, request.companyName, request.requestedSlug, loginUrl)
+      const domain = process.env.APP_DOMAIN || "localhost:3000"
+      const useSubdomain = process.env.NEXT_PUBLIC_USE_SUBDOMAIN === "true"
+      const protocol = domain.includes("localhost") ? "http" : "https"
+      const tenantUrl = useSubdomain && !domain.includes("localhost")
+        ? `${protocol}://${request.requestedSlug}.${domain}/dashboard`
+        : `${protocol}://${domain.includes("localhost") ? domain : `www.${domain}`}/${request.requestedSlug}/dashboard`
+      await sendApprovalEmail(request.requestedByEmail, request.companyName, request.requestedSlug, tenantUrl)
     } catch (e) {
       console.error("Failed to send approval email:", e)
     }

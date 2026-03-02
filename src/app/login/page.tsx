@@ -62,7 +62,15 @@ export default function LoginPage() {
     // console.log("Session response:", session);
     console.log("Session after login:", session);
     if (session.user.isPlatformAdmin) router.push("/admin");
-    else if (session.user.tenantSlug) router.push(`/${session.user.tenantSlug}/dashboard`);
+    else if (session.user.tenantSlug) {
+      const useSubdomain = process.env.NEXT_PUBLIC_USE_SUBDOMAIN === "true";
+      const domain = process.env.NEXT_PUBLIC_APP_DOMAIN;
+      if (useSubdomain && domain && !domain.includes("localhost")) {
+        window.location.href = `https://${session.user.tenantSlug}.${domain}/dashboard`;
+      } else {
+        router.push(`/${session.user.tenantSlug}/dashboard`);
+      }
+    }
     else { setError("Your workspace is not yet set up. Please contact support."); setLoading(false); }
   };
 

@@ -23,6 +23,11 @@ export function middleware(req: NextRequest) {
     return NextResponse.next()
   }
 
+  // If subdomain routing is disabled, use path-based routing
+  if (process.env.NEXT_PUBLIC_USE_SUBDOMAIN !== "true") {
+    return NextResponse.next()
+  }
+
   // Extract subdomain
   const parts = host.split(".")
 

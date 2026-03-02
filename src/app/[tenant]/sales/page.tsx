@@ -201,6 +201,7 @@ export default function SalesPOSPage() {
   const [showRecent, setShowRecent] = useState(false)
   const [showOutOfStock, setShowOutOfStock] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [printPromptData, setPrintPromptData] = useState<{ saleNum: string; saleDate: string; custName: string; allItems: { productName: string; quantity: number; pricePerUnit: number; discountAmount?: number; totalAmount: number }[]; totalAmount: number; billDiscountAmount: number; cashAmount: number; onlineAmount: number; creditAmount: number; dueAmount: number; subBills: any[] } | null>(null)
   const [customerSearch, setCustomerSearch] = useState("")
   const [customerDropdownOpen, setCustomerDropdownOpen] = useState(false)
   const customerDropdownRef = useRef<HTMLDivElement>(null)
@@ -476,29 +477,18 @@ export default function SalesPOSPage() {
     setSubmitting(false)
     if (!res.ok) return alert(data.error)
 
-    // Auto-print thermal receipt
+    // Prepare print data and show prompt
     const saleDate = finalDate.toISOString()
     const custName = selectedCustomerObj?.name || "Walk-In"
     const allItems = cart.map(c => ({ productName: c.productName, quantity: c.quantity, pricePerUnit: c.pricePerUnit, discountAmount: c.discountAmount, totalAmount: c.totalAmount }))
     const saleNum = data.saleNumber || data._id || ""
 
-    if (subBills.length > 1) {
-      // Print each sub-bill on separate receipt
-      subBills.forEach((sb, i) => {
-        setTimeout(() => doPrintSubBill({
-          saleNumber: saleNum, saleDate, customerName: custName, idx: i, totalSubs: subBills.length,
-          items: sb.items.map((it: any) => ({ productName: it.productName, quantity: it.quantity, pricePerUnit: it.pricePerUnit, discountAmount: it.discountAmount, totalAmount: it.totalAmount })),
-          totalDiscountAmount: sb.totalDiscountAmount, totalAmount: sb.totalAmount,
-          cashPaidAmount: sb.cashPaidAmount, onlinePaidAmount: sb.onlinePaidAmount, creditPaidAmount: sb.creditPaidAmount,
-        }), i * 600)
-      })
-    } else {
-      doPrintFullBill({
-        saleNumber: saleNum, saleDate, customerName: custName, items: allItems,
-        totalAmount, billDiscountAmount, cashAmount, onlineAmount, creditAmount,
-        dueAmount: Math.max(0, totalAmount - cashAmount - onlineAmount), subBillCount: 1,
-      })
-    }
+    setPrintPromptData({
+      saleNum, saleDate, custName, allItems,
+      totalAmount, billDiscountAmount, cashAmount, onlineAmount, creditAmount,
+      dueAmount: Math.max(0, totalAmount - cashAmount - onlineAmount),
+      subBills: subBills.length > 1 ? subBills : [],
+    })
 
     setCart([]); setCashAmount(0); setOnlineAmount(0); setCreditAmount(0); setSelectedCustomer(""); setCustomerSearch(""); setSelectedDate(""); setBillDiscountValue(0); setPaymentMode("cash")
     loadProducts(); loadRecentSales(); loadCustomers()
@@ -519,6 +509,48 @@ export default function SalesPOSPage() {
       `}</style>
 
       {overlayProduct && <ProductOverlay product={overlayProduct} effectiveStock={getEffectiveStock(overlayProduct._id, overlayProduct.currentStock)} existingItem={overlayExistingItem} isWalkIn={isWalkIn} maxDiscountPerUnit={selectedCustomerObj?.maxDiscountPercentage ? overlayProduct.pricePerUnit * selectedCustomerObj.maxDiscountPercentage / 100 : overlayProduct.pricePerUnit} onConfirm={handleOverlayConfirm} onClose={() => setOverlayProduct(null)} />}
+
+      {/* Print Prompt Overlay */}
+      {printPromptData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(15,23,42,0.5)", backdropFilter: "blur(6px)" }}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xs mx-4 overflow-hidden border border-blue-100">
+            <div className="px-6 pt-6 pb-4 text-center">
+              <div className="w-14 h-14 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center mx-auto mb-4">
+                <svg className="w-7 h-7 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+              </div>
+              <h3 className="font-semibold text-slate-800 text-lg" style={{ fontFamily: "'Playfair Display', serif" }}>Sale Complete!</h3>
+              <p className="text-sm text-slate-500 mt-1">#{printPromptData.saleNum} · ₹{printPromptData.totalAmount.toLocaleString("en-IN")}</p>
+              <p className="text-sm text-slate-400 mt-3">Would you like to print the bill?</p>
+            </div>
+            <div className="px-6 pb-6 flex gap-3">
+              <button onClick={() => setPrintPromptData(null)} className="flex-1 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-600 hover:bg-slate-50 transition-colors font-medium">Skip</button>
+              <button onClick={() => {
+                const d = printPromptData;
+                setPrintPromptData(null);
+                if (d.subBills.length > 0) {
+                  d.subBills.forEach((sb: any, i: number) => {
+                    setTimeout(() => doPrintSubBill({
+                      saleNumber: d.saleNum, saleDate: d.saleDate, customerName: d.custName, idx: i, totalSubs: d.subBills.length,
+                      items: sb.items.map((it: any) => ({ productName: it.productName, quantity: it.quantity, pricePerUnit: it.pricePerUnit, discountAmount: it.discountAmount, totalAmount: it.totalAmount })),
+                      totalDiscountAmount: sb.totalDiscountAmount, totalAmount: sb.totalAmount,
+                      cashPaidAmount: sb.cashPaidAmount, onlinePaidAmount: sb.onlinePaidAmount, creditPaidAmount: sb.creditPaidAmount,
+                    }), i * 600);
+                  });
+                } else {
+                  doPrintFullBill({
+                    saleNumber: d.saleNum, saleDate: d.saleDate, customerName: d.custName, items: d.allItems,
+                    totalAmount: d.totalAmount, billDiscountAmount: d.billDiscountAmount, cashAmount: d.cashAmount, onlineAmount: d.onlineAmount, creditAmount: d.creditAmount,
+                    dueAmount: d.dueAmount, subBillCount: 1,
+                  });
+                }
+              }} className="flex-1 py-2.5 rounded-xl text-white text-sm font-semibold transition-all flex items-center justify-center gap-2" style={{ background: "linear-gradient(135deg, #2563EB, #0EA5E9)", boxShadow: "0 4px 16px rgba(37,99,235,0.3)" }}>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
+                Print Bill
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* LEFT PANEL */}
       <div className="w-3/5 flex flex-col overflow-hidden border-r border-blue-100">
