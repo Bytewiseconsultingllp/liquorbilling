@@ -4,6 +4,7 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 import { connectDB } from "@/db/connection"
 import { Tenant } from "@/models/Tenant"
 import { User } from "@/models/User"
+import { buildTokenRegex } from "@/lib/smartSearch"
 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions)
@@ -24,9 +25,8 @@ export async function GET(req: Request) {
 
   const filter: any = {}
 
-  if (query) {
-    filter.name = { $regex: query, $options: "i" }
-  }
+  const tokenFilter = buildTokenRegex(query, ["name", "slug"])
+  if (tokenFilter) Object.assign(filter, tokenFilter)
 
   const [tenants, total] = await Promise.all([
     Tenant.find(filter)

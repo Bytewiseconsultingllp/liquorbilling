@@ -6,6 +6,7 @@ import { Product } from "@/models/Product"
 import { Tenant } from "@/models/Tenant"
 import mongoose from "mongoose"
 import { FilterQuery } from "mongoose"
+import { buildTokenRegex } from "@/lib/smartSearch"
 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions)
@@ -46,14 +47,8 @@ export async function GET(req: Request) {
   }
 
   // 🔍 Search filter
-  if (query) {
-    filter.$or = [
-      { name: { $regex: query, $options: "i" } },
-      { brand: { $regex: query, $options: "i" } },
-      { category: { $regex: query, $options: "i" } },
-      { sku: { $regex: query, $options: "i" } },
-    ]
-  }
+  const tokenFilter = buildTokenRegex(query, ["name", "brand", "category", "sku"])
+  if (tokenFilter) Object.assign(filter, tokenFilter)
 
   const [products, total] = await Promise.all([
     Product.find(filter)

@@ -4,6 +4,7 @@ import { connectDB } from "@/db/connection"
 import { Product } from "@/models/Product"
 import { getServerSession } from "next-auth"
 import { NextResponse } from "next/server"
+import { buildTokenRegex } from "@/lib/smartSearch"
 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions)
@@ -32,14 +33,8 @@ export async function GET(req: Request) {
     status: { $ne: "deleted" },
   }
 
-  if (query) {
-    filter.$or = [
-      { name: { $regex: query, $options: "i" } },
-      { brand: { $regex: query, $options: "i" } },
-      { category: { $regex: query, $options: "i" } },
-      { sku: { $regex: query, $options: "i" } },
-    ]
-  }
+  const tokenFilter = buildTokenRegex(query, ["name", "brand", "category", "sku"])
+  if (tokenFilter) Object.assign(filter, tokenFilter)
 
   const q = Product.find(filter).sort({ createdAt: -1 })
   if (!all) { q.skip(skip).limit(limit) }

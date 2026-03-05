@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { smartMatch } from "@/lib/smartSearch"
 
 const STYLE = `@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@300;400;500;600&display=swap');`
 
@@ -115,8 +116,7 @@ export default function ManagePurchasesPage() {
 
   const filtered = purchases.filter(p => {
     if (!search.trim()) return true
-    const q = search.toLowerCase()
-    return p.purchaseNumber.toLowerCase().includes(q) || p.vendorName?.toLowerCase().includes(q)
+    return smartMatch(search, p.purchaseNumber, p.vendorName)
   })
 
   const handleReturn = async (id: string) => {

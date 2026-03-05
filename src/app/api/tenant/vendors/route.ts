@@ -4,6 +4,7 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 import { connectDB } from "@/db/connection"
 import { Vendor } from "@/models/Vendor"
 import { VendorService } from "@/services/vendorService"
+import { buildTokenRegex } from "@/lib/smartSearch"
 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions)
@@ -25,9 +26,8 @@ export async function GET(req: Request) {
     status: { $ne: "deleted" },
   }
 
-  if (query) {
-    filter.name = { $regex: query, $options: "i" }
-  }
+  const tokenFilter = buildTokenRegex(query, ["name", "contactPerson", "phone", "email"])
+  if (tokenFilter) Object.assign(filter, tokenFilter)
 
   const [vendors, total] = await Promise.all([
     Vendor.find(filter)

@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState, useMemo, useRef, useCallback } from "react"
+import { smartMatch } from "@/lib/smartSearch"
 import { ImageUploader } from "../products/page"
 
 const STYLE = `@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@300;400;500;600&display=swap');
@@ -271,8 +272,7 @@ export default function PurchasePage() {
   // Filter products by search
   const filteredProducts = useMemo(() => {
     if (!search.trim()) return products
-    const q = search.toLowerCase()
-    return products.filter(p => p.name.toLowerCase().includes(q) || p.brand?.toLowerCase().includes(q) || p.category?.toLowerCase().includes(q))
+    return products.filter(p => smartMatch(search, p.name, p.brand, p.category, p.volumeML))
   }, [products, search])
 
   // ── Cart logic ──

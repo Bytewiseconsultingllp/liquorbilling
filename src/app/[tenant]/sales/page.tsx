@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useState, useMemo, useCallback, useRef } from "react";
+import { smartMatch } from "@/lib/smartSearch";
 
 /** Extract actual image URL from Google Images / redirector wrapper URLs */
 function extractImageUrl(raw: string): string {
@@ -295,8 +296,7 @@ export default function SalesPOSPage() {
 
   const filteredCustomers = useMemo(() => {
     if (!customerSearch.trim()) return customers
-    const q = customerSearch.toLowerCase()
-    return customers.filter(c => c.name.toLowerCase().includes(q) || c.contactInfo?.phone?.includes(q))
+    return customers.filter(c => smartMatch(customerSearch, c.name, c.contactInfo?.phone, c.contactInfo?.email))
   }, [customers, customerSearch])
 
   const selectCustomer = (id: string) => {
@@ -495,7 +495,7 @@ export default function SalesPOSPage() {
   }
 
   const filteredProducts = products
-    .filter(p => p.name.toLowerCase().includes(search.toLowerCase()))
+    .filter(p => smartMatch(search, p.name, p.category, p.volumeML))
     .filter(p => showOutOfStock || p.currentStock > 0)
     .sort((a, b) => (b.currentStock > 0 ? 1 : 0) - (a.currentStock > 0 ? 1 : 0))
   const overlayExistingItem = overlayProduct ? cart.find(i => i.productId === overlayProduct._id) : undefined

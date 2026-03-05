@@ -4,6 +4,7 @@ import { User } from "@/models/User";
 import { UserService } from "@/services/userService";
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
+import { buildTokenRegex } from "@/lib/smartSearch";
 
 
 export async function GET(req: Request) {
@@ -31,12 +32,8 @@ export async function GET(req: Request) {
     tenantId: session.user.tenantId,
   }
 
-  if (query) {
-    filter.email = {
-      $regex: query,
-      $options: "i", // case insensitive
-    }
-  }
+  const tokenFilter = buildTokenRegex(query, ["name", "email"])
+  if (tokenFilter) Object.assign(filter, tokenFilter)
 
   const [users, total] = await Promise.all([
     User.find(filter)
