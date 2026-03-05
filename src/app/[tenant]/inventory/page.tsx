@@ -64,13 +64,7 @@ export default function InventoryPage() {
       });
   }, []);
 
-  // Auto-load movement when dates are first set
-  useEffect(() => {
-    if (startDate && endDate && !movementLoaded) {
-      loadMovement();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [startDate, endDate]);
+  // Movement is loaded manually via the "Load" button — no autoload
 
   const loadMovement = async () => {
     if (!startDate || !endDate) return;

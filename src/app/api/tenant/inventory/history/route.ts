@@ -20,8 +20,11 @@ export async function GET() {
   const closings = await StockClosing.find({
     organizationId: session.user.tenantId,
   })
+    .select("closingDate totalDifferenceValue cashAmount onlineAmount saleId items")
     .populate("saleId", "saleNumber")
     .sort({ closingDate: -1 })
+    .limit(50)
+    .lean()
 
   return NextResponse.json(closings)
 }
