@@ -15,9 +15,9 @@ body {
   -webkit-font-smoothing: antialiased;
   /* zoom: 0.8; */
 }
-html {
+/* html {
   font-size: 80%;
-}
+} */
 * {
   box-sizing: border-box;
 }

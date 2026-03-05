@@ -240,6 +240,7 @@ export default function PurchasePage() {
   const [search, setSearch] = useState("")
   const [recentPurchases, setRecentPurchases] = useState<RecentPurchase[]>([])
   const [submitting, setSubmitting] = useState(false)
+  const [selectedDate, setSelectedDate] = useState("")
 
   // Overlay state
   const [overlayProduct, setOverlayProduct] = useState<Product | null>(null)
@@ -314,10 +315,15 @@ export default function PurchasePage() {
     if (items.length === 0) return alert("Add at least one product")
     setSubmitting(true)
     const vendor = vendors.find(v => v._id === selectedVendor)
+    let purchaseDate = new Date()
+    if (selectedDate) {
+      const [y, m, d] = selectedDate.split("-").map(Number)
+      purchaseDate = new Date(y, m - 1, d, 12, 0, 0)
+    }
     const res = await fetch("/api/tenant/purchases", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        vendorId: selectedVendor, vendorName: vendor?.name, purchaseDate: new Date(),
+        vendorId: selectedVendor, vendorName: vendor?.name, purchaseDate,
         items, subtotal, vatRate, vatAmount, tcsRate, tcsAmount, taxAmount, totalAmount,
         paymentStatus, paidAmount, dueAmount,
       }),
@@ -326,7 +332,7 @@ export default function PurchasePage() {
     setSubmitting(false)
     if (!res.ok) return alert(data.error)
     alert("Purchase Created Successfully!")
-    setItems([]); setSelectedVendor(""); setPaidAmount(0); setPaymentStatus("pending")
+    setItems([]); setSelectedVendor(""); setPaidAmount(0); setPaymentStatus("pending"); setSelectedDate("")
     fetchTodayPurchases(); fetchProducts()
   }
 
@@ -352,6 +358,11 @@ export default function PurchasePage() {
               <option value="">-- Select Vendor --</option>
               {vendors.map(v => <option key={v._id} value={v._id}>{v.name}</option>)}
             </select>
+            <div className="mt-3">
+              <label className="block text-xs font-medium text-slate-500 mb-1">Purchase Date <span className="text-slate-300 font-normal">(leave empty for today)</span></label>
+              <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)}
+                className={`${inputCls} w-full`} />
+            </div>
           </div>
 
           {/* Product Selection with Search + Quick Add */}
