@@ -134,6 +134,36 @@ export default function InventoryPage() {
     });
   }, [movementData]);
 
+  // Discrepancy stats for overview tab (uses currentStock)
+  const overviewDiscStats = useMemo(() => {
+    let count = 0;
+    let totalValue = 0;
+    for (const p of movementData) {
+      const disc = getDiscrepancy(p);
+      if (disc !== 0) {
+        count++;
+        totalValue += getDiscrepancyValue(p);
+      }
+    }
+    return { count, totalValue };
+  }, [movementData]);
+
+  // Discrepancy stats for closing tab (uses entered closing stocks)
+  const closingDiscStats = useMemo(() => {
+    let count = 0;
+    let totalValue = 0;
+    for (const p of movementData) {
+      const closing = closingStocks[p.productId];
+      if (closing === undefined) continue;
+      const disc = getDiscrepancy(p, closing);
+      if (disc !== 0) {
+        count++;
+        totalValue += getDiscrepancyValue(p, closing);
+      }
+    }
+    return { count, totalValue };
+  }, [movementData, closingStocks]);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const exportClosingTemplate = () => {
@@ -284,6 +314,25 @@ export default function InventoryPage() {
 
         {/* OVERVIEW TAB */}
         {tab === "overview" && (
+          <>
+          {sortedMovementData.length > 0 && (
+            <div className="bg-white rounded-2xl border border-blue-100 p-5 mb-5 shadow-sm flex items-center gap-6 flex-wrap">
+              <div>
+                <p className="text-xs text-slate-400 mb-1">Total Products</p>
+                <p className="font-bold text-slate-900">{sortedMovementData.length}</p>
+              </div>
+              <div className="w-px h-10 bg-slate-200" />
+              <div>
+                <p className="text-xs text-slate-400 mb-1">Products with Discrepancy</p>
+                <p className={`font-bold ${overviewDiscStats.count > 0 ? "text-red-500" : "text-emerald-600"}`}>{overviewDiscStats.count}</p>
+              </div>
+              <div className="w-px h-10 bg-slate-200" />
+              <div>
+                <p className="text-xs text-slate-400 mb-1">Total Discrepancy Value</p>
+                <p className={`font-bold ${overviewDiscStats.totalValue < 0 ? "text-red-500" : overviewDiscStats.totalValue > 0 ? "text-emerald-600" : "text-slate-400"}`}>₹ {overviewDiscStats.totalValue.toLocaleString("en-IN")}</p>
+              </div>
+            </div>
+          )}
           <div className="bg-white rounded-2xl border border-blue-100 overflow-hidden shadow-sm">
             {loadingMovement ? (
               <div className="py-16 flex flex-col items-center justify-center gap-3">
@@ -327,6 +376,7 @@ export default function InventoryPage() {
               </div>
             )}
           </div>
+          </>
         )}
 
         {/* CLOSING TAB */}
@@ -337,6 +387,16 @@ export default function InventoryPage() {
                 <div>
                   <p className="text-xs text-slate-400 mb-1">Stock Diff Value</p>
                   <p className="font-bold text-slate-900">₹ {stockDifferenceValue.toLocaleString("en-IN")}</p>
+                </div>
+                <div className="w-px h-10 bg-slate-200" />
+                <div>
+                  <p className="text-xs text-slate-400 mb-1">Products with Discrepancy</p>
+                  <p className={`font-bold ${closingDiscStats.count > 0 ? "text-red-500" : "text-emerald-600"}`}>{closingDiscStats.count}</p>
+                </div>
+                <div className="w-px h-10 bg-slate-200" />
+                <div>
+                  <p className="text-xs text-slate-400 mb-1">Total Disc. Value</p>
+                  <p className={`font-bold ${closingDiscStats.totalValue < 0 ? "text-red-500" : closingDiscStats.totalValue > 0 ? "text-emerald-600" : "text-slate-400"}`}>₹ {closingDiscStats.totalValue.toLocaleString("en-IN")}</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <label className="text-sm text-slate-600">Cash:</label>
