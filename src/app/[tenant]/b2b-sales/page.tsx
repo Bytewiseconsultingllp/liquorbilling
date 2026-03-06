@@ -106,7 +106,7 @@ function ItemOverlay({ product, existingItem, onConfirm, onClose }: {
   const [price, setPrice] = useState(existingItem?.purchasePricePerCaret ?? product.purchasePricePerCaret ?? 0)
 
   const totalBottles = carets * bpc + bottles
-  const lineAmount = carets * price
+  const lineAmount = Math.round(price * (carets + bottles / bpc))
 
   // Stock check — effective stock in bottles
   const maxBottles = product.currentStock
@@ -383,7 +383,7 @@ export default function B2BSalesPage() {
     if (!overlayProduct) return
     const bpc = overlayProduct.bottlesPerCaret || 12
     const totalBottles = carets * bpc + bottles
-    const amount = carets * price
+    const amount = Math.round(price * (carets + bottles / bpc))
 
     const newItem: CartItem = {
       productId: overlayProduct._id, productName: overlayProduct.name, brand: overlayProduct.brand || "",
