@@ -55,7 +55,8 @@ const purchaseSchema = new mongoose.Schema(
     tcsRate: { type: Number, default: 1 },
     tcsAmount: Number,
     taxAmount: Number, // vatAmount + tcsAmount
-    totalAmount: Number, // subtotal + taxAmount
+    roundingOff: { type: Number, default: 0 },
+    totalAmount: Number, // subtotal + taxAmount + roundingOff
 
     paymentStatus: {
       type: String,

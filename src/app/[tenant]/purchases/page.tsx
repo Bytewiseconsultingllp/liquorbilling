@@ -7,6 +7,7 @@ import { ImageUploader } from "../products/page"
 const STYLE = `@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@300;400;500;600&display=swap');
 .overlay-bg { background: rgba(15,23,42,0.5); backdrop-filter: blur(6px); }`
 const inputCls = "px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all text-sm"
+const FMT = (n: number) => n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 interface Product { _id: string; name: string; brand: string; volumeML: number; bottlesPerCaret?: number; currentStock: number; category?: string; purchasePricePerCaret?: number }
 interface Vendor { _id: string; name: string }
@@ -33,7 +34,7 @@ function ItemOverlay({ product, existingItem, onConfirm, onClose }: {
   const [price, setPrice] = useState(existingItem?.purchasePricePerCaret ?? product.purchasePricePerCaret ?? 0)
 
   const totalBottles = carets * bpc + bottles
-  const lineAmount = carets * price
+  const lineAmount = parseFloat((price * (carets + bottles / bpc)).toFixed(2))
 
   const handleCarets = (v: number) => { if (v < 0) return; setCarets(v) }
   const handleBottles = (v: number) => { if (v < 0 || v >= bpc) return; setBottles(v) }
@@ -76,7 +77,7 @@ function ItemOverlay({ product, existingItem, onConfirm, onClose }: {
           </div>
           <div className="bg-slate-50 rounded-xl p-4 space-y-1.5 text-sm">
             <div className="flex justify-between"><span className="text-slate-400">Total Bottles</span><span className="font-semibold text-slate-800">{totalBottles}</span></div>
-            <div className="flex justify-between border-t border-slate-200 pt-1.5"><span className="text-slate-400">Line Amount</span><span className="font-bold text-blue-600">₹{lineAmount.toLocaleString("en-IN")}</span></div>
+            <div className="flex justify-between border-t border-slate-200 pt-1.5"><span className="text-slate-400">Line Amount</span><span className="font-bold text-blue-600">₹{FMT(lineAmount)}</span></div>
           </div>
         </div>
         <div className="px-6 pb-6">
@@ -236,12 +237,14 @@ export default function PurchasePage() {
   const [products, setProducts] = useState<Product[]>([])
   const [selectedVendor, setSelectedVendor] = useState("")
   const [items, setItems] = useState<CartItem[]>([])
-  const [paymentStatus, setPaymentStatus] = useState("pending")
+  const [paymentStatus, setPaymentStatus] = useState("paid")
   const [paidAmount, setPaidAmount] = useState(0)
   const [search, setSearch] = useState("")
   const [recentPurchases, setRecentPurchases] = useState<RecentPurchase[]>([])
   const [submitting, setSubmitting] = useState(false)
   const [selectedDate, setSelectedDate] = useState("")
+  const [invoiceNumber, setInvoiceNumber] = useState("")
+  const [roundingOff, setRoundingOff] = useState(0)
 
   // Overlay state
   const [overlayProduct, setOverlayProduct] = useState<Product | null>(null)
@@ -286,7 +289,7 @@ export default function PurchasePage() {
     if (!overlayProduct) return
     const bpc = overlayProduct.bottlesPerCaret || 12
     const totalBottles = carets * bpc + bottles
-    const amount = carets * price
+    const amount = parseFloat((price * (carets + bottles / bpc)).toFixed(2))
 
     const newItem: CartItem = {
       productId: overlayProduct._id, productName: overlayProduct.name, brand: overlayProduct.brand,
@@ -302,12 +305,15 @@ export default function PurchasePage() {
   const removeItem = (index: number) => { setItems(items.filter((_, i) => i !== index)) }
 
   // ── Tax calculations ──
-  const subtotal = items.reduce((acc, item) => acc + item.amount, 0)
-  const vatRate = 35; const vatAmount = Math.round(subtotal * vatRate / 100)
-  const tcsRate = 1; const tcsAmount = Math.round((subtotal + vatAmount) * tcsRate / 100)
-  const taxAmount = vatAmount + tcsAmount
-  const totalAmount = subtotal + taxAmount
-  const dueAmount = totalAmount - paidAmount
+  const subtotal = parseFloat(items.reduce((acc, item) => acc + item.amount, 0).toFixed(2))
+  const vatRate = 35; const vatAmount = parseFloat((subtotal * vatRate / 100).toFixed(2))
+  const tcsRate = 1; const tcsAmount = parseFloat(((subtotal + vatAmount) * tcsRate / 100).toFixed(2))
+  const taxAmount = parseFloat((vatAmount + tcsAmount).toFixed(2))
+  const totalAmount = parseFloat((subtotal + taxAmount + roundingOff).toFixed(2))
+  const dueAmount = parseFloat((totalAmount - paidAmount).toFixed(2))
+
+  // Auto-set paidAmount = totalAmount when status is "paid"
+  useEffect(() => { if (paymentStatus === "paid") setPaidAmount(totalAmount) }, [paymentStatus, totalAmount])
 
   // ── Submit ──
   const submitPurchase = async () => {
@@ -324,7 +330,8 @@ export default function PurchasePage() {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         vendorId: selectedVendor, vendorName: vendor?.name, purchaseDate,
-        items, subtotal, vatRate, vatAmount, tcsRate, tcsAmount, taxAmount, totalAmount,
+        invoiceNumber,
+        items, subtotal, vatRate, vatAmount, tcsRate, tcsAmount, taxAmount, roundingOff, totalAmount,
         paymentStatus, paidAmount, dueAmount,
       }),
     })
@@ -332,7 +339,7 @@ export default function PurchasePage() {
     setSubmitting(false)
     if (!res.ok) return alert(data.error)
     alert("Purchase Created Successfully!")
-    setItems([]); setSelectedVendor(""); setPaidAmount(0); setPaymentStatus("pending"); setSelectedDate("")
+    setItems([]); setSelectedVendor(""); setPaidAmount(0); setPaymentStatus("paid"); setSelectedDate(""); setRoundingOff(0)
     fetchTodayPurchases(); fetchProducts()
   }
 
@@ -362,6 +369,10 @@ export default function PurchasePage() {
               <label className="block text-xs font-medium text-slate-500 mb-1">Purchase Date <span className="text-slate-300 font-normal">(leave empty for today)</span></label>
               <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)}
                 className={`${inputCls} w-full`} />
+            </div>
+            <div className="mt-3">
+              <label className="block text-xs font-medium text-slate-500 mb-1">Invoice Number</label>
+              <input type="text" value={invoiceNumber} onChange={e => setInvoiceNumber(e.target.value)} className={`${inputCls} w-full`} placeholder="Supplier invoice number" />
             </div>
           </div>
 
@@ -409,7 +420,7 @@ export default function PurchasePage() {
               <div className="space-y-3">
                 <div><label className="block text-xs font-medium text-slate-500 mb-1">Payment Status</label><select value={paymentStatus} onChange={e => setPaymentStatus(e.target.value)} className={`${inputCls} w-full`}><option value="pending">Pending</option><option value="partial">Partial</option><option value="paid">Paid</option></select></div>
                 <div><label className="block text-xs font-medium text-slate-500 mb-1">Paid Amount (₹)</label><input type="number" min={0} value={paidAmount} onChange={e => { const v = Number(e.target.value); if (v >= 0) setPaidAmount(v) }} className={`${inputCls} w-full`} /></div>
-                <div className="flex items-center justify-between pt-1"><span className="text-xs text-slate-400">Due Amount</span><span className={`text-sm font-bold ${dueAmount > 0 ? "text-red-500" : "text-emerald-600"}`}>₹{dueAmount.toLocaleString("en-IN")}</span></div>
+                <div className="flex items-center justify-between pt-1"><span className="text-xs text-slate-400">Due Amount</span><span className={`text-sm font-bold ${dueAmount > 0 ? "text-red-500" : "text-emerald-600"}`}>₹{FMT(dueAmount)}</span></div>
               </div>
             </div>
           )}
@@ -417,11 +428,12 @@ export default function PurchasePage() {
             <div className="bg-white p-5 rounded-2xl border border-blue-100 shadow-sm">
               <h2 className="font-semibold text-slate-900 mb-4 text-sm">Tax & Total Summary</h2>
               <div className="space-y-2 text-sm">
-                <div className="flex justify-between"><span className="text-slate-500">Subtotal</span><span className="font-medium text-slate-900">₹{subtotal.toLocaleString("en-IN")}</span></div>
-                <div className="flex justify-between"><span className="text-slate-500">VAT ({vatRate}% on Subtotal)</span><span className="font-medium text-slate-900">₹{vatAmount.toLocaleString("en-IN")}</span></div>
-                <div className="flex justify-between"><span className="text-slate-500">TCS ({tcsRate}% on Subtotal + VAT)</span><span className="font-medium text-slate-900">₹{tcsAmount.toLocaleString("en-IN")}</span></div>
-                <div className="flex justify-between border-t border-slate-200 pt-2"><span className="text-slate-500">Total Tax</span><span className="font-semibold text-orange-600">₹{taxAmount.toLocaleString("en-IN")}</span></div>
-                <div className="flex justify-between border-t border-slate-200 pt-2"><span className="font-semibold text-slate-800 text-base">Grand Total</span><span className="font-bold text-blue-700 text-base">₹{totalAmount.toLocaleString("en-IN")}</span></div>
+                <div className="flex justify-between"><span className="text-slate-500">Subtotal</span><span className="font-medium text-slate-900">₹{FMT(subtotal)}</span></div>
+                <div className="flex justify-between"><span className="text-slate-500">VAT ({vatRate}% on Subtotal)</span><span className="font-medium text-slate-900">₹{FMT(vatAmount)}</span></div>
+                <div className="flex justify-between"><span className="text-slate-500">TCS ({tcsRate}% on Subtotal + VAT)</span><span className="font-medium text-slate-900">₹{FMT(tcsAmount)}</span></div>
+                <div className="flex justify-between border-t border-slate-200 pt-2"><span className="text-slate-500">Total Tax</span><span className="font-semibold text-orange-600">₹{FMT(taxAmount)}</span></div>
+                <div className="flex justify-between items-center"><span className="text-slate-500">Rounding Off</span><input type="number" step="0.01" value={roundingOff} onChange={e => setRoundingOff(parseFloat(e.target.value) || 0)} className="w-28 text-right border border-slate-200 rounded-lg px-2 py-1 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" /></div>
+                <div className="flex justify-between border-t border-slate-200 pt-2"><span className="font-semibold text-slate-800 text-base">Grand Total</span><span className="font-bold text-blue-700 text-base">₹{FMT(totalAmount)}</span></div>
               </div>
               <button onClick={submitPurchase} disabled={submitting} className="w-full mt-5 py-3 text-white text-sm font-semibold rounded-xl transition-all disabled:opacity-50" style={{ background: "linear-gradient(135deg, #2563EB, #0EA5E9)", boxShadow: "0 4px 16px rgba(37,99,235,0.3)" }}>
                 {submitting ? "Submitting..." : "Submit Purchase →"}
@@ -456,7 +468,7 @@ export default function PurchasePage() {
                         <td className="px-5 py-3 font-mono text-slate-700">{item.carets}</td>
                         <td className="px-5 py-3 font-mono text-slate-700">{item.bottles}</td>
                         <td className="px-5 py-3 font-mono text-slate-700">₹{item.purchasePricePerCaret.toLocaleString("en-IN")}</td>
-                        <td className="px-5 py-3 font-semibold text-slate-900">₹{item.amount.toLocaleString("en-IN")}</td>
+                        <td className="px-5 py-3 font-semibold text-slate-900">₹{FMT(item.amount)}</td>
                         <td className="px-5 py-3">
                           <div className="flex items-center gap-1">
                             <button onClick={() => { setEditingIndex(index); setOverlayProduct(products.find(p => p._id === item.productId) || null) }}
