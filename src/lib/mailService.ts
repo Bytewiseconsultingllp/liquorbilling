@@ -10,7 +10,7 @@ const transporter = nodemailer.createTransport({
   },
 })
 
-const FROM = process.env.EMAIL_FROM || "noreply@liquorbilling.com"
+const FROM = process.env.EMAIL_FROM || "noreply@liquorbilling.in"
 const APP_NAME = "LiquorPOS"
 
 /* ─── shared styles ─── */
