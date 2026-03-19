@@ -37,8 +37,27 @@ export const metadata: Metadata = {
 
 export default function LiquorBillingSoftwarePage() {
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-12 sm:px-6 lg:px-10">
-      <div className="mx-auto max-w-5xl rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-10">
+    <main className="min-h-screen bg-slate-50">
+      <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur">
+        <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-4 sm:px-6 lg:px-10">
+          <Link href="/" className="inline-flex items-center gap-3">
+            <Image src="/icon_512X512.svg" alt="Liquor Billing logo" width={30} height={30} className="h-8 w-8" />
+            <span className="text-lg font-bold text-slate-900">Liquor Billing</span>
+          </Link>
+
+          <nav className="flex items-center gap-2 sm:gap-3">
+            <Link href="/login" className="rounded-full border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 hover:border-blue-300 hover:text-blue-700 sm:px-5 sm:text-sm">
+              Sign in
+            </Link>
+            <Link href="/register" className="rounded-full bg-blue-700 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-800 sm:px-5 sm:text-sm">
+              Get started
+            </Link>
+          </nav>
+        </div>
+      </header>
+
+      <div className="px-4 py-12 sm:px-6 lg:px-10">
+        <div className="mx-auto max-w-5xl rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-10">
         <Link
           href="/"
           className="mb-8 inline-flex items-center gap-3 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:border-blue-300 hover:text-blue-700"
@@ -97,6 +116,23 @@ export default function LiquorBillingSoftwarePage() {
           </div>
         </section>
       </div>
+      </div>
+
+      <footer className="border-t border-slate-200 bg-white">
+        <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-8 text-sm text-slate-600 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-10">
+          <p>© {new Date().getFullYear()} Liquor Billing. All rights reserved.</p>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <Link href="/privacy-policy" className="hover:text-blue-700">Privacy Policy</Link>
+            <span className="text-slate-400">|</span>
+            <Link href="/terms-of-service" className="hover:text-blue-700">Terms of Service</Link>
+            <span className="text-slate-400">|</span>
+            <a href="tel:8332936831" className="hover:text-blue-700">8332936831</a>
+            <span className="text-slate-400">|</span>
+            <a href="mailto:sales@bytewiseconsulting.in" className="hover:text-blue-700">sales@bytewiseconsulting.in</a>
+          </div>
+        </div>
+      </footer>
     </main>
   );
 }
