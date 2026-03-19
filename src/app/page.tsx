@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Liquor Billing Software | Liquor Billing POS, Inventory & Finance",
+  title: "Liquor Billing Software | Liquor Billing POS for Stores and Bars",
   description:
     "Liquor Billing is professional liquor billing software with POS billing, inventory control, customer and vendor management, and financial reporting for liquor stores, bars, and distributors.",
   keywords: [
@@ -44,6 +44,33 @@ export const metadata: Metadata = {
 };
 
 export default function HomePage() {
+  const faqItems = [
+    {
+      q: "What is Liquor Billing exactly?",
+      a: "Liquor Billing is a cloud-based POS and management software specifically designed for liquor stores, bars, and distributors. It combines sales billing, inventory management, financial tracking, and team collaboration in one platform.",
+    },
+    {
+      q: "How is Liquor Billing different from other POS systems?",
+      a: "We're built specifically for the liquor business. Multi-vendor inventory tracking, vendor priority allocation, role-based access, compliance-ready audit logs, and liquor-specific reporting set us apart.",
+    },
+    {
+      q: "Is my data secure and private?",
+      a: "Yes. Each organization has a completely isolated workspace. We use enterprise-grade encryption, SSL/TLS for all data in transit, regular security audits, and comply with data protection standards.",
+    },
+    {
+      q: "Can I try Liquor Billing for free?",
+      a: "Absolutely! All plans come with a 14-day free trial. No credit card required. Full access to all features—try everything before committing.",
+    },
+    {
+      q: "How does billing and pricing work?",
+      a: "We offer flexible monthly plans starting at $25/month. You're billed monthly. Cancel anytime. Enterprise customers get custom pricing with dedicated support.",
+    },
+    {
+      q: "What support do you offer?",
+      a: "We provide email support for all plans, live chat for Professional & Enterprise, comprehensive documentation, video tutorials, and onboarding assistance.",
+    },
+  ];
+
   const organizationSchema = {
     "@context": "https://schema.org",
     "@type": "Organization",
@@ -79,10 +106,24 @@ export default function HomePage() {
     ],
   };
 
+  const faqSchema = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: faqItems.map((item) => ({
+      "@type": "Question",
+      name: item.q,
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: item.a,
+      },
+    })),
+  };
+
   return (
     <main className="min-h-screen flex flex-col" style={{ background: "linear-gradient(135deg, #EEF2FF 0%, #F0F9FF 50%, #F8FAFF 100%)", fontFamily: "'DM Sans', sans-serif" }}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareSchema) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }} />
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@300;400;500;600&display=swap');
         .font-display { font-family: 'Playfair Display', serif; }
@@ -108,12 +149,12 @@ export default function HomePage() {
           <span className="w-2 h-2 rounded-full bg-blue-500 inline-block animate-pulse"></span>
           Multi-tenant SaaS platform
         </div>
-        <h1 style={{ fontFamily: "'Playfair Display', serif" }} className="text-3xl sm:text-5xl lg:text-6xl font-bold leading-tight text-slate-900 max-w-3xl mb-6">
-          Run your business,<br />
-          <span style={{ background: "linear-gradient(135deg, #2563EB, #0EA5E9)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>beautifully organized.</span>
+        <h1 style={{ fontFamily: "'Playfair Display', serif" }} className="text-3xl sm:text-5xl lg:text-6xl font-bold leading-tight text-slate-900 max-w-4xl mb-6">
+          Liquor Billing Software<br />
+          <span style={{ background: "linear-gradient(135deg, #2563EB, #0EA5E9)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>for fast, accurate POS billing.</span>
         </h1>
         <p className="text-base sm:text-lg text-slate-500 max-w-xl mb-10 leading-relaxed font-light">
-          Liquor Billing gives your team a dedicated workspace with user management, role-based access, and powerful admin tools — all in one place.
+          Liquor Billing POS gives your team a dedicated workspace with user management, role-based access, inventory control, and powerful finance tools in one place.
         </p>
         <div className="flex w-full max-w-md sm:max-w-none sm:w-auto flex-col sm:flex-row gap-3 sm:gap-4">
           <Link href="/register" className="btn-primary px-8 py-3.5 text-base font-semibold text-white rounded-full text-center">Create your workspace →</Link>
@@ -349,32 +390,7 @@ export default function HomePage() {
           <p className="text-center text-xs font-semibold text-blue-500 uppercase tracking-widest mb-3">Questions?</p>
           <h2 style={{ fontFamily: "'Playfair Display', serif" }} className="text-3xl font-bold text-center text-slate-900 mb-12">Frequently Asked Questions</h2>
           <div className="space-y-4">
-            {[
-              {
-                q: "What is Liquor Billing exactly?",
-                a: "Liquor Billing is a cloud-based POS and management software specifically designed for liquor stores, bars, and distributors. It combines sales billing, inventory management, financial tracking, and team collaboration in one platform.",
-              },
-              {
-                q: "How is Liquor Billing different from other POS systems?",
-                a: "We're built specifically for the liquor business. Multi-vendor inventory tracking, vendor priority allocation, role-based access, compliance-ready audit logs, and liquor-specific reporting set us apart.",
-              },
-              {
-                q: "Is my data secure and private?",
-                a: "Yes. Each organization has a completely isolated workspace. We use enterprise-grade encryption, SSL/TLS for all data in transit, regular security audits, and comply with data protection standards.",
-              },
-              {
-                q: "Can I try Liquor Billing for free?",
-                a: "Absolutely! All plans come with a 14-day free trial. No credit card required. Full access to all features—try everything before committing.",
-              },
-              {
-                q: "How does billing and pricing work?",
-                a: "We offer flexible monthly plans starting at $25/month. You're billed monthly. Cancel anytime. Enterprise customers get custom pricing with dedicated support.",
-              },
-              {
-                q: "What support do you offer?",
-                a: "We provide email support for all plans, live chat for Professional & Enterprise, comprehensive documentation, video tutorials, and onboarding assistance.",
-              },
-            ].map((item) => (
+            {faqItems.map((item) => (
               <details
                 key={item.q}
                 className="group border border-blue-100 rounded-xl overflow-hidden bg-white cursor-pointer hover:border-blue-300 transition-colors"
@@ -425,6 +441,7 @@ export default function HomePage() {
             <div>
               <h4 className="font-semibold text-white mb-4">Product</h4>
               <ul className="space-y-2 text-sm">
+                <li><Link href="/liquor-billing-software" className="hover:text-blue-400 transition">Liquor Billing Software</Link></li>
                 <li><Link href="#features" className="hover:text-blue-400 transition">Features</Link></li>
                 <li><Link href="#pricing" className="hover:text-blue-400 transition">Pricing</Link></li>
                 <li><Link href="#faq" className="hover:text-blue-400 transition">FAQ</Link></li>
