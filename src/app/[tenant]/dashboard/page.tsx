@@ -3,8 +3,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 
 interface Product { _id: string; name: string; brand?: string; category?: string; volumeML?: number; morningStock: number; currentStock: number }
+type DashboardPeriod = "daily" | "weekly" | "monthly"
 
 interface DashStats {
+  activePeriod?: DashboardPeriod
   todaySales: { count: number; total: number; paid: number; due: number; cash: number; online: number; credit: number; discount: number }
   todayPurchases: { count: number; total: number; subtotal: number; tax: number; paid: number; due: number }
   todayB2B: { count: number; total: number; paid: number; due: number; cash: number; online: number }
@@ -63,15 +65,22 @@ function Pill({ label, value, color, bg, border }: { label: string; value: strin
 export default function TenantDashboard() {
   const [stats, setStats] = useState<DashStats | null>(null)
   const [loading, setLoading] = useState(true)
+  const [period, setPeriod] = useState<DashboardPeriod>("daily")
   const [showStockReceipt, setShowStockReceipt] = useState(false)
   const [products, setProducts] = useState<Product[]>([])
   const [loadingProducts, setLoadingProducts] = useState(false)
   const [activeTab, setActiveTab] = useState<"overview" | "analytics" | "activity">("overview")
 
   useEffect(() => {
+    const controller = new AbortController()
     setLoading(true)
-    fetch("/api/tenant/dashboard").then(r => r.json()).then(d => { setStats(d); setLoading(false) }).catch(() => setLoading(false))
-  }, [])
+    fetch(`/api/tenant/dashboard?period=${period}`, { signal: controller.signal })
+      .then(r => r.json())
+      .then(d => { setStats(d); setLoading(false) })
+      .catch(() => setLoading(false))
+
+    return () => controller.abort()
+  }, [period])
 
   const loadProducts = useCallback(async () => {
     setLoadingProducts(true)
@@ -104,8 +113,17 @@ export default function TenantDashboard() {
 
   const weeklyMax = useMemo(() => Math.max(1, ...weeklyData.map(d => Math.max(d.sales, d.purchases))), [weeklyData])
 
-  /* ---------- Today's net cash flow ---------- */
-  const todayNetCash = useMemo(() => {
+  const periodMeta = useMemo(() => {
+    const labels: Record<DashboardPeriod, { title: string; possessive: string }> = {
+      daily: { title: "Daily", possessive: "Today's" },
+      weekly: { title: "Weekly", possessive: "This week's" },
+      monthly: { title: "Monthly", possessive: "This month's" },
+    }
+    return labels[period]
+  }, [period])
+
+  /* ---------- Selected period net cash flow ---------- */
+  const selectedNetCash = useMemo(() => {
     if (!stats) return 0
     const inflow = stats.todaySales.cash + stats.todaySales.online + stats.todayB2B.cash + stats.todayB2B.online + stats.todayCredit.total
     const outflow = stats.todayPurchases.paid + stats.todayExpenses.total
@@ -256,13 +274,26 @@ export default function TenantDashboard() {
               <h1 style={{ fontFamily: "'Playfair Display', serif" }} className="text-3xl font-bold text-slate-900">Dashboard</h1>
               <p className="text-slate-500 text-sm mt-1">{new Date().toLocaleDateString("en-IN", { weekday: "long", day: "2-digit", month: "long", year: "numeric" })}</p>
             </div>
-            <div className="flex gap-1 bg-white rounded-xl border border-slate-200 p-1">
-              {(["overview", "analytics", "activity"] as const).map(tab => (
-                <button key={tab} onClick={() => setActiveTab(tab)}
-                  className={`px-4 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all ${activeTab === tab ? "bg-blue-600 text-white shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
-                  {tab}
-                </button>
-              ))}
+            <div className="flex flex-col items-end gap-2">
+              <div className="flex gap-1 bg-white rounded-xl border border-slate-200 p-1">
+                {(["overview", "analytics", "activity"] as const).map(tab => (
+                  <button key={tab} onClick={() => setActiveTab(tab)}
+                    className={`px-4 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all ${activeTab === tab ? "bg-blue-600 text-white shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
+                    {tab}
+                  </button>
+                ))}
+              </div>
+              <div className="flex gap-1 bg-white rounded-xl border border-slate-200 p-1">
+                {(["daily", "weekly", "monthly"] as const).map(option => (
+                  <button
+                    key={option}
+                    onClick={() => setPeriod(option)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all ${period === option ? "bg-slate-800 text-white shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+                  >
+                    {option}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </div>
@@ -273,11 +304,11 @@ export default function TenantDashboard() {
             {/* ──── Top-line KPIs ──── */}
             <div className="grid grid-cols-5 gap-4 mb-6">
               {[
-                { label: "Today Sales", value: s ? INR(s.todaySales.total) : "—", sub: s ? `${s.todaySales.count} bills` : "", color: "#047857", bg: "#ECFDF5", border: "#A7F3D0", icon: "M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z" },
-                { label: "Today Purchases", value: s ? INR(s.todayPurchases.total) : "—", sub: s ? `${s.todayPurchases.count} orders` : "", color: "#2563EB", bg: "#EFF6FF", border: "#BFDBFE", icon: "M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17" },
-                { label: "Today B2B", value: s ? INR(s.todayB2B.total) : "—", sub: s ? `${s.todayB2B.count} invoices` : "", color: "#7C3AED", bg: "#F5F3FF", border: "#DDD6FE", icon: "M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" },
-                { label: "Today Expenses", value: s ? INR(s.todayExpenses.total) : "—", sub: s ? `${s.todayExpenses.count} entries` : "", color: "#DC2626", bg: "#FEF2F2", border: "#FECACA", icon: "M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" },
-                { label: "Net Cash Flow", value: s ? INR(todayNetCash) : "—", sub: s ? (todayNetCash >= 0 ? "Positive" : "Negative") : "", color: todayNetCash >= 0 ? "#047857" : "#DC2626", bg: todayNetCash >= 0 ? "#ECFDF5" : "#FEF2F2", border: todayNetCash >= 0 ? "#A7F3D0" : "#FECACA", icon: "M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" },
+                { label: `${periodMeta.title} Sales`, value: s ? INR(s.todaySales.total) : "—", sub: s ? `${s.todaySales.count} bills` : "", color: "#047857", bg: "#ECFDF5", border: "#A7F3D0", icon: "M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z" },
+                { label: `${periodMeta.title} Purchases`, value: s ? INR(s.todayPurchases.total) : "—", sub: s ? `${s.todayPurchases.count} orders` : "", color: "#2563EB", bg: "#EFF6FF", border: "#BFDBFE", icon: "M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17" },
+                { label: `${periodMeta.title} B2B`, value: s ? INR(s.todayB2B.total) : "—", sub: s ? `${s.todayB2B.count} invoices` : "", color: "#7C3AED", bg: "#F5F3FF", border: "#DDD6FE", icon: "M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" },
+                { label: `${periodMeta.title} Expenses`, value: s ? INR(s.todayExpenses.total) : "—", sub: s ? `${s.todayExpenses.count} entries` : "", color: "#DC2626", bg: "#FEF2F2", border: "#FECACA", icon: "M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" },
+                { label: `${periodMeta.title} Net Flow`, value: s ? INR(selectedNetCash) : "—", sub: s ? (selectedNetCash >= 0 ? "Positive" : "Negative") : "", color: selectedNetCash >= 0 ? "#047857" : "#DC2626", bg: selectedNetCash >= 0 ? "#ECFDF5" : "#FEF2F2", border: selectedNetCash >= 0 ? "#A7F3D0" : "#FECACA", icon: "M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" },
               ].map(kpi => (
                 <div key={kpi.label} className="bg-white rounded-2xl p-4 border flex flex-col justify-between" style={{ borderColor: kpi.border }}>
                   <div className="flex items-center justify-between mb-2">
@@ -294,7 +325,7 @@ export default function TenantDashboard() {
 
             {/* ──── Today Sales Breakdown + Today Purchases Breakdown ──── */}
             <div className="grid grid-cols-2 gap-5 mb-6">
-              <Section title="Sales Breakdown" subtitle="Today's collection split">
+              <Section title="Sales Breakdown" subtitle={`${periodMeta.possessive} collection split`}>
                 <div className="grid grid-cols-4 gap-3">
                   <Pill label="Cash" value={s ? INR(s.todaySales.cash) : "—"} color="#047857" bg="#ECFDF5" border="#A7F3D0" />
                   <Pill label="Online" value={s ? INR(s.todaySales.online) : "—"} color="#2563EB" bg="#EFF6FF" border="#BFDBFE" />
@@ -302,7 +333,7 @@ export default function TenantDashboard() {
                   <Pill label="Discount" value={s ? INR(s.todaySales.discount) : "—"} color="#7C3AED" bg="#F5F3FF" border="#DDD6FE" />
                 </div>
               </Section>
-              <Section title="Purchase Breakdown" subtitle="Today's purchase details">
+              <Section title="Purchase Breakdown" subtitle={`${periodMeta.possessive} purchase details`}>
                 <div className="grid grid-cols-3 gap-3">
                   <Pill label="Subtotal" value={s ? INR(s.todayPurchases.subtotal) : "—"} color="#0369A1" bg="#F0F9FF" border="#BAE6FD" />
                   <Pill label="Paid" value={s ? INR(s.todayPurchases.paid) : "—"} color="#047857" bg="#ECFDF5" border="#A7F3D0" />
@@ -313,21 +344,21 @@ export default function TenantDashboard() {
 
             {/* ──── Credit Collections + B2B ──── */}
             <div className="grid grid-cols-2 gap-5 mb-6">
-              <Section title="Credit Collections" subtitle="Today's due payments received">
+              <Section title="Credit Collections" subtitle={`${periodMeta.possessive} due payments received`}>
                 <div className="grid grid-cols-3 gap-3">
                   <Pill label="Total Collected" value={s ? INR(s.todayCredit.total) : "—"} color="#047857" bg="#ECFDF5" border="#A7F3D0" />
                   <Pill label="Cash" value={s ? INR(s.todayCredit.cash) : "—"} color="#B45309" bg="#FFFBEB" border="#FDE68A" />
                   <Pill label="Online" value={s ? INR(s.todayCredit.online) : "—"} color="#2563EB" bg="#EFF6FF" border="#BFDBFE" />
                 </div>
-                {s && <p className="text-[11px] text-slate-400 mt-3">{s.todayCredit.count} payment(s) received today</p>}
+                {s && <p className="text-[11px] text-slate-400 mt-3">{s.todayCredit.count} payment(s) received in selected period</p>}
               </Section>
-              <Section title="B2B Sales" subtitle="Today's wholesale transactions">
+              <Section title="B2B Sales" subtitle={`${periodMeta.possessive} wholesale transactions`}>
                 <div className="grid grid-cols-3 gap-3">
                   <Pill label="Total" value={s ? INR(s.todayB2B.total) : "—"} color="#7C3AED" bg="#F5F3FF" border="#DDD6FE" />
                   <Pill label="Cash" value={s ? INR(s.todayB2B.cash) : "—"} color="#047857" bg="#ECFDF5" border="#A7F3D0" />
                   <Pill label="Online" value={s ? INR(s.todayB2B.online) : "—"} color="#2563EB" bg="#EFF6FF" border="#BFDBFE" />
                 </div>
-                {s && <p className="text-[11px] text-slate-400 mt-3">{s.todayB2B.count} B2B invoice(s) today</p>}
+                {s && <p className="text-[11px] text-slate-400 mt-3">{s.todayB2B.count} B2B invoice(s) in selected period</p>}
               </Section>
             </div>
 

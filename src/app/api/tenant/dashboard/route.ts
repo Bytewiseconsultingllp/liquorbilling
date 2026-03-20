@@ -17,11 +17,17 @@ import mongoose from "mongoose"
 // Dynamically load B2BSale model
 const B2BSale = mongoose.models.B2BSale || mongoose.model("B2BSale_Dashboard", new mongoose.Schema({}, { strict: false, collection: "b2bsales" }))
 
-export async function GET() {
+type DashboardPeriod = "daily" | "weekly" | "monthly"
+
+export async function GET(request: Request) {
   const session = await getServerSession(authOptions)
   if (!session?.user?.tenantId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
   }
+
+  const { searchParams } = new URL(request.url)
+  const periodParam = searchParams.get("period")
+  const period: DashboardPeriod = periodParam === "weekly" || periodParam === "monthly" ? periodParam : "daily"
 
   await connectDB()
   const tenantId = session.user.tenantId
@@ -37,11 +43,14 @@ export async function GET() {
   // 30-day range
   const monthStart = startOfDayIST(new Date(now.getTime() - 29 * 24 * 60 * 60 * 1000))
 
+  const rangeStart = period === "weekly" ? weekStart : period === "monthly" ? monthStart : todayStart
+  const rangeEnd = todayEnd
+
   const [
     totalUsers, activeUsers,
     totalProducts, lowStockProducts, outOfStockProducts,
     totalCustomers, customersWithDues, totalVendors,
-    todaySalesAgg, todayPurchasesAgg, todayB2BSalesAgg, todayExpensesAgg, todayCreditAgg,
+    periodSalesAgg, periodPurchasesAgg, periodB2BSalesAgg, periodExpensesAgg, periodCreditAgg,
     totalOutstandingAgg,
     weeklySalesAgg, weeklyPurchasesAgg,
     monthlySalesAgg, monthlyPurchasesAgg, monthlyExpensesAgg,
@@ -60,23 +69,23 @@ export async function GET() {
     Vendor.countDocuments({ organizationId: tenantId, status: { $ne: "deleted" } }),
 
     Sale.aggregate([
-      { $match: { organizationId: tid, saleDate: { $gte: todayStart, $lte: todayEnd }, status: "active", type: "sale" } },
+      { $match: { organizationId: tid, saleDate: { $gte: rangeStart, $lte: rangeEnd }, status: "active", type: "sale" } },
       { $group: { _id: null, total: { $sum: "$totalAmount" }, paid: { $sum: "$paidAmount" }, due: { $sum: "$dueAmount" }, cash: { $sum: "$cashAmount" }, online: { $sum: "$onlineAmount" }, credit: { $sum: "$creditAmount" }, discount: { $sum: "$totalDiscount" }, count: { $sum: 1 } } },
     ]),
     Purchase.aggregate([
-      { $match: { organizationId: tid, purchaseDate: { $gte: todayStart, $lte: todayEnd }, isReturned: { $ne: true } } },
+      { $match: { organizationId: tid, purchaseDate: { $gte: rangeStart, $lte: rangeEnd }, isReturned: { $ne: true } } },
       { $group: { _id: null, total: { $sum: "$totalAmount" }, subtotal: { $sum: "$subtotal" }, tax: { $sum: "$taxAmount" }, paid: { $sum: "$paidAmount" }, due: { $sum: "$dueAmount" }, count: { $sum: 1 } } },
     ]),
     B2BSale.aggregate([
-      { $match: { organizationId: tid, saleDate: { $gte: todayStart, $lte: todayEnd }, status: "active" } },
+      { $match: { organizationId: tid, saleDate: { $gte: rangeStart, $lte: rangeEnd }, status: "active" } },
       { $group: { _id: null, total: { $sum: "$totalAmount" }, paid: { $sum: "$paidAmount" }, due: { $sum: "$dueAmount" }, cash: { $sum: "$cashAmount" }, online: { $sum: "$onlineAmount" }, count: { $sum: 1 } } },
     ]),
     Expense.aggregate([
-      { $match: { organizationId: tid, expenseDate: { $gte: todayStart, $lte: todayEnd }, status: "active" } },
+      { $match: { organizationId: tid, expenseDate: { $gte: rangeStart, $lte: rangeEnd }, status: "active" } },
       { $group: { _id: null, total: { $sum: "$amount" }, count: { $sum: 1 } } },
     ]),
     CreditPayment.aggregate([
-      { $match: { organizationId: tid, creditDate: { $gte: todayStart, $lte: todayEnd }, status: "active" } },
+      { $match: { organizationId: tid, creditDate: { $gte: rangeStart, $lte: rangeEnd }, status: "active" } },
       { $group: { _id: null, total: { $sum: "$amount" }, cash: { $sum: "$cashAmount" }, online: { $sum: "$onlineAmount" }, count: { $sum: 1 } } },
     ]),
 
@@ -154,17 +163,18 @@ export async function GET() {
       .select("closingDate totalDifferenceValue cashAmount onlineAmount").sort({ closingDate: -1 }).lean(),
   ])
 
-  const ts = todaySalesAgg[0] || { total: 0, paid: 0, due: 0, cash: 0, online: 0, credit: 0, discount: 0, count: 0 }
-  const tp = todayPurchasesAgg[0] || { total: 0, subtotal: 0, tax: 0, paid: 0, due: 0, count: 0 }
-  const tb = todayB2BSalesAgg[0] || { total: 0, paid: 0, due: 0, cash: 0, online: 0, count: 0 }
-  const te = todayExpensesAgg[0] || { total: 0, count: 0 }
-  const tc = todayCreditAgg[0] || { total: 0, cash: 0, online: 0, count: 0 }
+  const ts = periodSalesAgg[0] || { total: 0, paid: 0, due: 0, cash: 0, online: 0, credit: 0, discount: 0, count: 0 }
+  const tp = periodPurchasesAgg[0] || { total: 0, subtotal: 0, tax: 0, paid: 0, due: 0, count: 0 }
+  const tb = periodB2BSalesAgg[0] || { total: 0, paid: 0, due: 0, cash: 0, online: 0, count: 0 }
+  const te = periodExpensesAgg[0] || { total: 0, count: 0 }
+  const tc = periodCreditAgg[0] || { total: 0, cash: 0, online: 0, count: 0 }
   const ms = monthlySalesAgg[0] || { total: 0, cash: 0, online: 0, credit: 0, discount: 0, count: 0 }
   const mp = monthlyPurchasesAgg[0] || { total: 0, paid: 0, due: 0, count: 0 }
   const me = monthlyExpensesAgg[0] || { total: 0, count: 0 }
   const sv = stockValueAgg[0] || { totalRetailValue: 0, totalItems: 0, productCount: 0 }
 
   return NextResponse.json({
+    activePeriod: period,
     todaySales: { count: ts.count, total: ts.total, paid: ts.paid, due: ts.due, cash: ts.cash, online: ts.online, credit: ts.credit, discount: ts.discount },
     todayPurchases: { count: tp.count, total: tp.total, subtotal: tp.subtotal, tax: tp.tax, paid: tp.paid, due: tp.due },
     todayB2B: { count: tb.count, total: tb.total, paid: tb.paid, due: tb.due, cash: tb.cash, online: tb.online },
